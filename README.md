@@ -35,7 +35,7 @@ Generated files will be placed in ./output directory. For ease of use a compress
 git clone https://github.com/GoogleCloudPlatform/aws-to-stratozone-export.git
 ```
 
-- Step 5: Access cloned project directory
+- Step 4: Access cloned project directory
 ```
 cd aws-to-stratozone-export/
 ```
