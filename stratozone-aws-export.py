@@ -153,21 +153,22 @@ def get_network_interface_info(interface_list, l_vm_instance):
 
   """
   try:
-    ip_list = ''
-    nic_count = 0
-
-    for interface in interface_list:
+    ip_list = []
+   
+    for nic_count, interface in enumerate(interface_list):
       if nic_count == 0:
         l_vm_instance['PrimaryIPAddress'] = interface['PrivateIpAddress']
 
-      ip_list = ip_list + interface['PrivateIpAddress'] + ';'
+      ip_list.append(interface['PrivateIpAddress'])
+      ip_list.append(';')
+
       if len(interface['Association']['PublicIp']) > 0:
         l_vm_instance['PublicIPAddress'] = interface['Association']['PublicIp']
+        ip_list.append(interface['Association']['PublicIp'])
+        ip_list.append(';')
 
-      nic_count = nic_count + 1
-
-    l_vm_instance['IpAddressListSemiColonDelimited'] = (
-        ip_list.rstrip(ip_list[-1]))
+    ip_list.pop()
+    l_vm_instance['IpAddressListSemiColonDelimited'] = (''.join(ip_list))
 
   except Exception as e:
     logging.error(e)
