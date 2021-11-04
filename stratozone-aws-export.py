@@ -33,7 +33,7 @@ vm_disk_list = []
 vm_perf_list = []
 
 
-# setup directories
+
 def create_directory(dir_name):
   """Create output directory.
 
@@ -47,7 +47,7 @@ def create_directory(dir_name):
     logging.error(e)
 
 
-# retrieve VM source image information
+
 def get_image_info(image_id, l_vm_instance):
   """Get source image info.
 
@@ -64,7 +64,7 @@ def get_image_info(image_id, l_vm_instance):
   return l_vm_instance
 
 
-# retrieve information on the VM size (cpu, memory)
+
 def get_image_size_details(instance_type, l_vm_instance):
   """Get image size details.
 
@@ -84,9 +84,9 @@ def get_image_size_details(instance_type, l_vm_instance):
   return l_vm_instance
 
 
-# write data contained in dictionary list into csv file
+
 def report_writer(dictionary_data, fiel_dname_list, file_name):
-  """Get image size details.
+  """write data contained in dictionary list into csv file.
 
   Args:
     dictionary_data: dictionary object
@@ -107,9 +107,9 @@ def report_writer(dictionary_data, fiel_dname_list, file_name):
     logging.error(e)
 
 
-# retrieve information on disk attached to VM
+
 def get_disk_info(vm_id, block_device_list, root_device_name):
-  """Get network interface data.
+  """Get attached disk data.
 
   Args:
     vm_id: Instance ID
@@ -143,7 +143,7 @@ def get_disk_info(vm_id, block_device_list, root_device_name):
     logging.error(e)
 
 
-# retrieve information on the nic attached to the VM
+
 def get_network_interface_info(interface_list, l_vm_instance):
   """Get network interface data.
 
@@ -160,21 +160,18 @@ def get_network_interface_info(interface_list, l_vm_instance):
         l_vm_instance['PrimaryIPAddress'] = interface['PrivateIpAddress']
 
       ip_list.append(interface['PrivateIpAddress'])
-      ip_list.append(';')
-
+     
       if len(interface['Association']['PublicIp']) > 0:
         l_vm_instance['PublicIPAddress'] = interface['Association']['PublicIp']
         ip_list.append(interface['Association']['PublicIp'])
-        ip_list.append(';')
-
-    ip_list.pop()
-    l_vm_instance['IpAddressListSemiColonDelimited'] = (''.join(ip_list))
+     
+    l_vm_instance['IpAddressListSemiColonDelimited'] = (';'.join(ip_list))
 
   except Exception as e:
     logging.error(e)
 
 
-# retrieve all the tags assigned to the VM
+
 def get_instance_tags(vm_id, tag_dictionary, l_vm_instance):
   """Get tags assigned to instance.
 
@@ -326,7 +323,7 @@ def get_performance_info(vm_id, region_name, block_device_list):
     logging.error(e)
 
 
-# display progress on the screen
+
 def display_script_progress():
   """Display collection progress."""
   try:
@@ -341,7 +338,7 @@ def display_script_progress():
 
 # check if region is enabled
 def region_is_available(l_region):
-  """Compress generated files into zip file for import into stratozone.
+  """Check if region is enabled.
 
   Args:
     l_region: name of the region
