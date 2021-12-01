@@ -297,11 +297,11 @@ def get_performance_info(vm_id, region_name, block_device_list):
         vm_perf_info['TimeStamp'] = (
             response['MetricDataResults'][0]['Timestamps'][i].strftime(
                 '%m/%d/%Y, %H:%M:%S'))
-        vm_perf_info['CpuUtilizationPercentage'] = (
+        vm_perf_info['CpuUtilizationPercentage'] = '{:.2f}'.format(
             response['MetricDataResults'][0]['Values'][i])
-        vm_perf_info['NetworkBytesPerSecSent'] = (
+        vm_perf_info['NetworkBytesPerSecSent'] = '{:.4f}'.format(
             response['MetricDataResults'][1]['Values'][i])
-        vm_perf_info['NetworkBytesPerSecReceived'] = (
+        vm_perf_info['NetworkBytesPerSecReceived'] = '{:.4f}'.format(
             response['MetricDataResults'][2]['Values'][i])
 
         tmp_read_io = 0
@@ -313,8 +313,8 @@ def get_performance_info(vm_id, region_name, block_device_list):
           tmp_write_io = tmp_write_io + (
               response['MetricDataResults'][4 + j]['Values'][i])
 
-        vm_perf_info['DiskReadOperationsPerSec'] = (tmp_read_io /1800)
-        vm_perf_info['DiskWriteOperationsPerSec'] = (tmp_write_io /1800)
+        vm_perf_info['DiskReadOperationsPerSec'] = '{:.4f}'.format((tmp_read_io /1800))
+        vm_perf_info['DiskWriteOperationsPerSec'] = '{:.4f}'.format((tmp_write_io /1800))
         vm_perf_info['AvailableMemoryBytes'] = 0
 
         vm_perf_list.append(vm_perf_info)
