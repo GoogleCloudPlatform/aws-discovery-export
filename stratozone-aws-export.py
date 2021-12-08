@@ -78,7 +78,7 @@ def get_image_size_details(instance_type, l_vm_instance):
   instance_type_info = (
       client.describe_instance_types(
           InstanceTypes=[instance_type,]).get('InstanceTypes'))
-  l_vm_instance['MemoryMiB'] = instance_type_info[0]['MemoryInfo']['SizeInMiB']
+  l_vm_instance['MemoryGiB'] = '{:.1f}'.format(instance_type_info[0]['MemoryInfo']['SizeInMiB']/1024)
   l_vm_instance['AllocatedProcessorCoreCount'] = (
       instance_type_info[0]['VCpuInfo']['DefaultCores'])
   return l_vm_instance
@@ -451,7 +451,7 @@ for region in regions['Regions']:
 field_names = ['MachineId', 'MachineName', 'PrimaryIPAddress',
                'PublicIPAddress', 'IpAddressListSemiColonDelimited',
                'TotalDiskAllocatedGiB', 'TotalDiskUsedGiB', 'MachineTypeLabel',
-               'AllocatedProcessorCoreCount', 'MemoryMiB', 'HostingLocation',
+               'AllocatedProcessorCoreCount', 'MemoryGiB', 'HostingLocation',
                'OsType', 'OsPublisher', 'OsName', 'OsVersion',
                'MachineStatus', 'ProvisioningState', 'CreateDate', 'IsPhysical']
 
