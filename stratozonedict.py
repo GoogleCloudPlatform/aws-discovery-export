@@ -34,7 +34,8 @@ vm_basic_info = {
     'MachineStatus':'',
     'ProvisioningState':'',
     'CreateDate':'',
-    'IsPhysical':0
+    'IsPhysical':0,
+    'Source':'AWS'
 }
 
 vm_tag = {

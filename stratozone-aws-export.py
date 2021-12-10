@@ -453,7 +453,7 @@ field_names = ['MachineId', 'MachineName', 'PrimaryIPAddress',
                'TotalDiskAllocatedGiB', 'TotalDiskUsedGiB', 'MachineTypeLabel',
                'AllocatedProcessorCoreCount', 'MemoryGiB', 'HostingLocation',
                'OsType', 'OsPublisher', 'OsName', 'OsVersion',
-               'MachineStatus', 'ProvisioningState', 'CreateDate', 'IsPhysical']
+               'MachineStatus', 'ProvisioningState', 'CreateDate', 'IsPhysical', 'Source']
 
 report_writer(vm_list, field_names, 'vmInfo.csv')
 
