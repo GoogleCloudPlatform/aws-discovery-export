@@ -17,6 +17,7 @@ limitations under the License.
 # Solution Overview
 This script collects information from provided AWS account and generates csv files for import into StratoZone portal for analysis.
 Generated files will be placed in ./output directory. For ease of use a compress zip file will be created that can be imported directly to StratoZone using the import procedure. 
+Script will collect data only on the instances user executing the script has access to. 
 
 **NOTE** - Due to the unavailability of instance memory utilization, that metric will be ignored by the StratoZone recommendation engine.
 
@@ -24,6 +25,7 @@ Generated files will be placed in ./output directory. For ease of use a compress
 - [StratoZone AWS export usage](#stratozone-aws-export-usage)
 - [Prerequisites](#prerequisites)
 - [AWS Permissions](#AWS-Permissions)
+- [Support](#Support)
 
 # Stratozone AWS export usage
 
@@ -71,3 +73,6 @@ python3 stratozone-aws-export.py
 
 # AWS Permissions
 The script needs read-only access to the AWS organization where collection will be performed.
+
+# Support
+If the execution of the scipt fails please contact support-stratozone@google.com and attach log file located in ./output directory.
