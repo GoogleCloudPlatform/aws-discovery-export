@@ -51,7 +51,7 @@ python3 stratozone-aws-export.py
 
 - Step 6: Verify output file has been generated
 ```
- ls ./output/stz-import-files.zip
+ ls ./aws-import-files.zip
 ```
 
 - Step 7: When the script completes, select download file from the Actions dropdown in upper right corner. \
