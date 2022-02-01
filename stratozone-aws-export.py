@@ -25,6 +25,8 @@ import logging
 import stratozonedict
 import os
 import zipfile
+import argparse
+
 
 # global variables
 vm_list = []
@@ -32,6 +34,11 @@ vm_tag_list = []
 vm_disk_list = []
 vm_perf_list = []
 
+
+
+# Initiate the parser
+parser = argparse.ArgumentParser()
+parser.add_argument('-n','--no_perf', help="Do Not collect performance data.", action='store_true')
 
 
 def create_directory(dir_name):
@@ -58,11 +65,21 @@ def get_image_info(image_id, l_vm_instance):
   Returns:
       Dictionary object.
   """
-  disk_image = client.describe_images(ImageIds=[image_id,]).get('Images')
-  l_vm_instance['OsType'] = disk_image[0].get('PlatformDetails')
-  l_vm_instance['OsPublisher'] = disk_image[0].get('Description')
-  return l_vm_instance
+  try:
+    disk_image = client.describe_images(ImageIds=[image_id,]).get('Images')
+    if len(disk_image) > 0:
+      l_vm_instance['OsType'] = disk_image[0].get('PlatformDetails')
+      l_vm_instance['OsPublisher'] = disk_image[0].get('Description')
+    else:
+      l_vm_instance['OsType'] = 'unknown'
+      l_vm_instance['OsPublisher'] = 'unknown'
+    return l_vm_instance
 
+  except Exception as e:
+    logging.error(e)
+    l_vm_instance['OsType'] = 'unknown'
+    l_vm_instance['OsPublisher'] = 'unknown'
+    return l_vm_instance
 
 
 def get_image_size_details(instance_type, l_vm_instance):
@@ -382,11 +399,14 @@ def zip_files(dir_name, zip_file_name):
 # Collect information about deployed instances
 ###########################################################################
 
+# Read arguments from the command line
+args = parser.parse_args()
+
 # create output and log directory
 create_directory('./output')
 
 logging.basicConfig(filename='./output/stratozone-aws-export.log',
-                    level=logging.DEBUG)
+                    level=logging.ERROR)
 logging.debug('Starting collection at: %s', datetime.datetime.now())
 
 
@@ -431,11 +451,11 @@ for region in regions['Regions']:
                                         instance['Tags'],
                                         vm_instance)
 
-        if 'NetworkInterfaces' in instance:
-          get_network_interface_info(instance['NetworkInterfaces'],
+      if 'NetworkInterfaces' in instance:
+        get_network_interface_info(instance['NetworkInterfaces'],
                                      vm_instance)
-
-      get_performance_info(instance['InstanceId'],
+      if not args.no_perf:
+        get_performance_info(instance['InstanceId'],
                            region['RegionName'],
                            instance['BlockDeviceMappings'])
 
@@ -447,6 +467,7 @@ for region in regions['Regions']:
       vm_list.append(vm_instance)
 
 # write collected data to files
+created_files = 4
 
 field_names = ['MachineId', 'MachineName', 'PrimaryIPAddress',
                'PublicIPAddress', 'IpAddressListSemiColonDelimited',
@@ -471,8 +492,14 @@ field_names = ['MachineId', 'TimeStamp', 'CpuUtilizationPercentage',
                'DiskWriteOperationsPerSec', 'NetworkBytesPerSecSent',
                'NetworkBytesPerSecReceived']
 
-report_writer(vm_perf_list, field_names, 'perfInfo.csv')
+if not args.no_perf:
+  report_writer(vm_perf_list, field_names, 'perfInfo.csv')
+else:
+  created_files = 3
 
 zip_files('./output/', 'aws-import-files.zip')
 
 logging.debug('Collection completed at: %s', datetime.datetime.now())
+print('\n\nExport Completed. \nAws-import-files.zip generated successfully containing {} files.'.format(created_files))
+if args.no_perf:
+  print('Performance data was not collected.')
