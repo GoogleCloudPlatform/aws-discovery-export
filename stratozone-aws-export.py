@@ -13,7 +13,7 @@ Copyright 2021 Google LLC
  See the License for the specific language governing permissions and
  limitations under the License.
 
-version 1.0
+version 1.1.6
 
 """
 
@@ -51,6 +51,7 @@ def create_directory(dir_name):
     if not os.path.exists(dir_name):
       os.makedirs(dir_name)
   except Exception as e:
+    logging.error('error in create_directory')
     logging.error(e)
 
 
@@ -76,6 +77,7 @@ def get_image_info(image_id, l_vm_instance):
     return l_vm_instance
 
   except Exception as e:
+    logging.error('error in get_image_info')
     logging.error(e)
     l_vm_instance['OsType'] = 'unknown'
     l_vm_instance['OsPublisher'] = 'unknown'
@@ -121,9 +123,20 @@ def report_writer(dictionary_data, fiel_dname_list, file_name):
       for dictionary_value in dictionary_data:
         writer.writerow(dictionary_value)
   except Exception as e:
+    logging.error('error in report_writer')
     logging.error(e)
 
-
+def generate_disk_data(vm_id):
+  """If no disk is found generate disk data to prevend import errors
+      Args:
+      vm_id: Instance ID
+  """
+  disk = stratozonedict.vm_disk.copy()
+  disk['MachineId'] = vm_id
+  disk['DiskLabel'] = '/dev/xvda'
+  disk['SizeInGib'] = '52.5'
+  disk['StorageTypeLabel'] = 'gp2'
+  vm_disk_list.append(disk)
 
 def get_disk_info(vm_id, block_device_list, root_device_name):
   """Get attached disk data.
@@ -136,8 +149,11 @@ def get_disk_info(vm_id, block_device_list, root_device_name):
   Returns:
       Disk create date.
   """
+  disk_count = 0
+
   try:
     disk_create_date = datetime.datetime.now()
+    
     for block_device in block_device_list:
       disk = stratozonedict.vm_disk.copy()
 
@@ -150,14 +166,22 @@ def get_disk_info(vm_id, block_device_list, root_device_name):
       disk['StorageTypeLabel'] = volume[0]['VolumeType']
 
       vm_disk_list.append(disk)
-
+      disk_count = disk_count + 1
       if root_device_name == block_device['DeviceName']:
         disk_create_date = block_device['Ebs']['AttachTime']
+      
+    if disk_count == 0:
+      generate_disk_data(vm_id)
 
     return disk_create_date
 
   except Exception as e:
+    if disk_count == 0:
+      generate_disk_data(vm_id)
+    
+    logging.error('error in get_disk_info')
     logging.error(e)
+    return disk_create_date
 
 
 
@@ -178,13 +202,15 @@ def get_network_interface_info(interface_list, l_vm_instance):
 
       ip_list.append(interface['PrivateIpAddress'])
      
-      if len(interface['Association']['PublicIp']) > 0:
-        l_vm_instance['PublicIPAddress'] = interface['Association']['PublicIp']
-        ip_list.append(interface['Association']['PublicIp'])
+      if 'Association' in interface:
+        if len(interface['Association']['PublicIp']) > 0:
+          l_vm_instance['PublicIPAddress'] = interface['Association']['PublicIp']
+          ip_list.append(interface['Association']['PublicIp'])
      
     l_vm_instance['IpAddressListSemiColonDelimited'] = (';'.join(ip_list))
 
   except Exception as e:
+    logging.error('error in get_network_interface_info')
     logging.error(e)
 
 
@@ -213,11 +239,14 @@ def get_instance_tags(vm_id, tag_dictionary, l_vm_instance):
       if tag['Key'] == 'Name':
         l_vm_instance['MachineName'] = tag['Value']
 
-    vm_tag_list.append(tmp_tag)
+      vm_tag_list.append(tmp_tag)
+
     return l_vm_instance
 
   except Exception as e:
+    logging.error('error in get_instance_tags')
     logging.error(e)
+    return l_vm_instance
 
 
 def get_metric_data_query(namespace, metric_name,
@@ -337,6 +366,7 @@ def get_performance_info(vm_id, region_name, block_device_list):
         vm_perf_list.append(vm_perf_info)
 
   except Exception as e:
+    logging.error('error in get_performance_info')
     logging.error(e)
 
 
@@ -350,6 +380,7 @@ def display_script_progress():
                                            region_counter, total_regions))
     sys.stdout.flush()
   except Exception as e:
+    logging.error('error in display_script_progress')
     logging.error(e)
 
 
@@ -369,6 +400,7 @@ def region_is_available(l_region):
     regional_sts.get_caller_identity()
     return True
   except Exception as e:
+    logging.error('error in region_is_available')
     logging.error(e)
     return False
 
@@ -405,7 +437,9 @@ args = parser.parse_args()
 # create output and log directory
 create_directory('./output')
 
+log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logging.basicConfig(filename='./output/stratozone-aws-export.log',
+                    format = log_format,
                     level=logging.ERROR)
 logging.debug('Starting collection at: %s', datetime.datetime.now())
 
@@ -436,6 +470,9 @@ for region in regions['Regions']:
 
   for reservation in specific_instance['Reservations']:
     for instance in reservation['Instances']:
+      if instance.get('State').get('Name') == 'terminated':
+        continue
+
       vm_instance = stratozonedict.vm_basic_info.copy()
 
       vm_instance['MachineId'] = instance.get('InstanceId')
@@ -450,6 +487,8 @@ for region in regions['Regions']:
         vm_instance = get_instance_tags(instance.get('InstanceId'),
                                         instance['Tags'],
                                         vm_instance)
+      else:
+        vm_instance['MachineName'] = vm_instance['MachineId']
 
       if 'NetworkInterfaces' in instance:
         get_network_interface_info(instance['NetworkInterfaces'],
@@ -463,6 +502,7 @@ for region in regions['Regions']:
                                           instance['BlockDeviceMappings'],
                                           instance['RootDeviceName'])
       vm_instance['CreateDate'] = vm_create_timestamp
+
 
       vm_list.append(vm_instance)
 

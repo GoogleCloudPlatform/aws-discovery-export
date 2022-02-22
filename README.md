@@ -14,7 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Solution Overview
+## Solution Overview
+__Warning:__ This project is currently in beta. Please open an issue if you would like to report a bug or documentation issue, request a feature, or have a question.
+
 This script collects information from provided AWS account and generates csv files for import into StratoZone portal for analysis.
 Generated files will be placed in ./output directory. For ease of use a compress zip file will be created that can be imported directly to StratoZone using the import procedure. 
 Script will collect data only on the instances user executing the script has access to. 
@@ -27,7 +29,7 @@ Script will collect data only on the instances user executing the script has acc
 - [AWS Permissions](#AWS-Permissions)
 - [Support](#Support)
 
-# Stratozone AWS export usage
+## Stratozone AWS export usage
 
 - Step 1: Login to AWS Console
 
@@ -49,12 +51,18 @@ cd aws-to-stratozone-export/
 python3 stratozone-aws-export.py
 ```
 
+__NOTE:__ To skip performance data collection add `--no_perf` switch 
+```
+python3 stratozone-aws-export.py --no_perf
+```
+
 - Step 6: Verify output file has been generated
 ```
  ls ./aws-import-files.zip
 ```
 
 - Step 7: When the script completes, select download file from the Actions dropdown in upper right corner. \
+
 !["Image of Cloud Shell Actions, download file"](images/aws-actions.png)
 
 - Step 8: Enter the path to the output file.
@@ -64,15 +72,16 @@ python3 stratozone-aws-export.py
 
 - Step 9: Click Download. File is ready for import into StratoZone portal.
 
-# Prerequisites
+## Prerequisites
+
   AWS Cloud Shell is the recommended environment to execute the collection script as it has all required components (Python3, AWS SDK) already installed.
 
   If the script will be executed from a workstation following components will need to be installed
   - Python 3.6 or later
   - AWS SDK for Python (https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html)
 
-# AWS Permissions
+## AWS Permissions
 The script needs read-only access to the AWS organization where collection will be performed.
 
-# Support
+## Support
 If the execution of the scipt fails please contact stratozone-support@google.com and attach log file located in ./output directory.
