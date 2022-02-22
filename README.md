@@ -73,6 +73,7 @@ python3 stratozone-aws-export.py --no_perf
 - Step 9: Click Download. File is ready for import into StratoZone portal.
 
 ## Prerequisites
+
   AWS Cloud Shell is the recommended environment to execute the collection script as it has all required components (Python3, AWS SDK) already installed.
 
   If the script will be executed from a workstation following components will need to be installed
