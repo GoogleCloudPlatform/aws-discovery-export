@@ -1,5 +1,4 @@
-"""
-Copyright 2021 Google LLC
+"""Copyright 2021 Google LLC.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -13,20 +12,20 @@ Copyright 2021 Google LLC
  See the License for the specific language governing permissions and
  limitations under the License.
 
-version 1.1.6
+version 1.1.8
 
 """
 
-import boto3
+import argparse
 import csv
 import datetime
-import sys
 import logging
-import stratozonedict
 import os
+import sys
 import zipfile
-import argparse
 
+import boto3
+import stratozonedict
 
 # global variables
 vm_list = []
@@ -35,10 +34,10 @@ vm_disk_list = []
 vm_perf_list = []
 
 
-
 # Initiate the parser
 parser = argparse.ArgumentParser()
-parser.add_argument('-n','--no_perf', help="Do Not collect performance data.", action='store_true')
+parser.add_argument('-n', '--no_perf', help='Do Not collect performance data.',
+                    action='store_true')
 
 
 def create_directory(dir_name):
@@ -53,7 +52,6 @@ def create_directory(dir_name):
   except Exception as e:
     logging.error('error in create_directory')
     logging.error(e)
-
 
 
 def get_image_info(image_id, l_vm_instance):
@@ -97,19 +95,19 @@ def get_image_size_details(instance_type, l_vm_instance):
   instance_type_info = (
       client.describe_instance_types(
           InstanceTypes=[instance_type,]).get('InstanceTypes'))
-  l_vm_instance['MemoryGiB'] = '{:.1f}'.format(instance_type_info[0]['MemoryInfo']['SizeInMiB']/1024)
+  l_vm_instance['MemoryGiB'] = '{:.1f}'.format(
+      instance_type_info[0]['MemoryInfo']['SizeInMiB']/1024)
   l_vm_instance['AllocatedProcessorCoreCount'] = (
       instance_type_info[0]['VCpuInfo']['DefaultCores'])
   return l_vm_instance
 
 
-
-def report_writer(dictionary_data, fiel_dname_list, file_name):
+def report_writer(dictionary_data, field_name_list, file_name):
   """write data contained in dictionary list into csv file.
 
   Args:
     dictionary_data: dictionary object
-    fiel_dname_list: column names
+    field_name_list: column names
     file_name: file name to be created
 
   Returns:
@@ -118,7 +116,7 @@ def report_writer(dictionary_data, fiel_dname_list, file_name):
   try:
     logging.info('Writing %s to the disk', file_name)
     with open('./output/'+file_name, 'w', newline='') as csvfile:
-      writer = csv.DictWriter(csvfile, fieldnames=fiel_dname_list)
+      writer = csv.DictWriter(csvfile, fieldnames=field_name_list)
       writer.writeheader()
       for dictionary_value in dictionary_data:
         writer.writerow(dictionary_value)
@@ -126,10 +124,12 @@ def report_writer(dictionary_data, fiel_dname_list, file_name):
     logging.error('error in report_writer')
     logging.error(e)
 
+
 def generate_disk_data(vm_id):
-  """If no disk is found generate disk data to prevend import errors
-      Args:
-      vm_id: Instance ID
+  """If no disk is found generate disk data to prevend import errors.
+
+  Args:
+    vm_id: Instance ID
   """
   disk = stratozonedict.vm_disk.copy()
   disk['MachineId'] = vm_id
@@ -137,6 +137,7 @@ def generate_disk_data(vm_id):
   disk['SizeInGib'] = '52.5'
   disk['StorageTypeLabel'] = 'gp2'
   vm_disk_list.append(disk)
+
 
 def get_disk_info(vm_id, block_device_list, root_device_name):
   """Get attached disk data.
@@ -153,7 +154,7 @@ def get_disk_info(vm_id, block_device_list, root_device_name):
 
   try:
     disk_create_date = datetime.datetime.now()
-    
+
     for block_device in block_device_list:
       disk = stratozonedict.vm_disk.copy()
 
@@ -169,7 +170,7 @@ def get_disk_info(vm_id, block_device_list, root_device_name):
       disk_count = disk_count + 1
       if root_device_name == block_device['DeviceName']:
         disk_create_date = block_device['Ebs']['AttachTime']
-      
+
     if disk_count == 0:
       generate_disk_data(vm_id)
 
@@ -178,11 +179,10 @@ def get_disk_info(vm_id, block_device_list, root_device_name):
   except Exception as e:
     if disk_count == 0:
       generate_disk_data(vm_id)
-    
+
     logging.error('error in get_disk_info')
     logging.error(e)
     return disk_create_date
-
 
 
 def get_network_interface_info(interface_list, l_vm_instance):
@@ -195,24 +195,24 @@ def get_network_interface_info(interface_list, l_vm_instance):
   """
   try:
     ip_list = []
-   
+
     for nic_count, interface in enumerate(interface_list):
       if nic_count == 0:
         l_vm_instance['PrimaryIPAddress'] = interface['PrivateIpAddress']
 
       ip_list.append(interface['PrivateIpAddress'])
-     
+
       if 'Association' in interface:
         if len(interface['Association']['PublicIp']) > 0:
-          l_vm_instance['PublicIPAddress'] = interface['Association']['PublicIp']
+          l_vm_instance['PublicIPAddress'] = (
+              interface['Association']['PublicIp'])
           ip_list.append(interface['Association']['PublicIp'])
-     
+
     l_vm_instance['IpAddressListSemiColonDelimited'] = (';'.join(ip_list))
 
   except Exception as e:
     logging.error('error in get_network_interface_info')
     logging.error(e)
-
 
 
 def get_instance_tags(vm_id, tag_dictionary, l_vm_instance):
@@ -251,7 +251,7 @@ def get_instance_tags(vm_id, tag_dictionary, l_vm_instance):
 
 def get_metric_data_query(namespace, metric_name,
                           dimension_name, dimension_value, unit, query_id=''):
-  """Get performance matrics JSON query for the VM.
+  """Get performance metrics JSON query for the VM.
 
   Args:
     namespace: Query Namespace
@@ -359,8 +359,10 @@ def get_performance_info(vm_id, region_name, block_device_list):
           tmp_write_io = tmp_write_io + (
               response['MetricDataResults'][4 + j]['Values'][i])
 
-        vm_perf_info['DiskReadOperationsPerSec'] = '{:.4f}'.format((tmp_read_io /1800))
-        vm_perf_info['DiskWriteOperationsPerSec'] = '{:.4f}'.format((tmp_write_io /1800))
+        vm_perf_info['DiskReadOperationsPerSec'] = '{:.4f}'.format(
+            (tmp_read_io /1800))
+        vm_perf_info['DiskWriteOperationsPerSec'] = '{:.4f}'.format(
+            (tmp_write_io /1800))
         vm_perf_info['AvailableMemoryBytes'] = 0
 
         vm_perf_list.append(vm_perf_info)
@@ -368,7 +370,6 @@ def get_performance_info(vm_id, region_name, block_device_list):
   except Exception as e:
     logging.error('error in get_performance_info')
     logging.error(e)
-
 
 
 def display_script_progress():
@@ -384,7 +385,6 @@ def display_script_progress():
     logging.error(e)
 
 
-# check if region is enabled
 def region_is_available(l_region):
   """Check if region is enabled.
 
@@ -439,7 +439,7 @@ create_directory('./output')
 
 log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logging.basicConfig(filename='./output/stratozone-aws-export.log',
-                    format = log_format,
+                    format=log_format,
                     level=logging.ERROR)
 logging.debug('Starting collection at: %s', datetime.datetime.now())
 
@@ -455,7 +455,7 @@ region_counter = 0
 total_regions = len(regions['Regions'])
 
 # loop through all the regions and for each region get a list of deployed VMs
-# process each VM retrieving all basic data as well as performance matrics.
+# process each VM retrieving all basic data as well as performance metrics.
 
 for region in regions['Regions']:
   region_counter += 1
@@ -480,6 +480,16 @@ for region in regions['Regions']:
       vm_instance['MachineTypeLabel'] = instance.get('InstanceType')
       vm_instance['MachineStatus'] = instance.get('State').get('Name')
       vm_instance = get_image_info(instance.get('ImageId'), vm_instance)
+
+      if vm_instance['OsType'] == 'unknown':
+        tmp_os_value = 'Linux'
+        if ('windows' in instance.get('PlatformDetails').lower() or
+            'sql' in instance.get('PlatformDetails').lower()):
+          tmp_os_value = 'Windows'
+
+        vm_instance['OsType'] = tmp_os_value
+        vm_instance['OsPublisher'] = tmp_os_value
+
       vm_instance = get_image_size_details(instance.get('InstanceType'),
                                            vm_instance)
 
@@ -492,17 +502,16 @@ for region in regions['Regions']:
 
       if 'NetworkInterfaces' in instance:
         get_network_interface_info(instance['NetworkInterfaces'],
-                                     vm_instance)
+                                   vm_instance)
       if not args.no_perf:
         get_performance_info(instance['InstanceId'],
-                           region['RegionName'],
-                           instance['BlockDeviceMappings'])
+                             region['RegionName'],
+                             instance['BlockDeviceMappings'])
 
       vm_create_timestamp = get_disk_info(instance['InstanceId'],
                                           instance['BlockDeviceMappings'],
                                           instance['RootDeviceName'])
       vm_instance['CreateDate'] = vm_create_timestamp
-
 
       vm_list.append(vm_instance)
 
@@ -514,7 +523,8 @@ field_names = ['MachineId', 'MachineName', 'PrimaryIPAddress',
                'TotalDiskAllocatedGiB', 'TotalDiskUsedGiB', 'MachineTypeLabel',
                'AllocatedProcessorCoreCount', 'MemoryGiB', 'HostingLocation',
                'OsType', 'OsPublisher', 'OsName', 'OsVersion',
-               'MachineStatus', 'ProvisioningState', 'CreateDate', 'IsPhysical', 'Source']
+               'MachineStatus', 'ProvisioningState', 'CreateDate',
+               'IsPhysical', 'Source']
 
 report_writer(vm_list, field_names, 'vmInfo.csv')
 
@@ -540,6 +550,9 @@ else:
 zip_files('./output/', 'aws-import-files.zip')
 
 logging.debug('Collection completed at: %s', datetime.datetime.now())
-print('\n\nExport Completed. \nAws-import-files.zip generated successfully containing {} files.'.format(created_files))
+print('\n\nExport Completed. \n')
+print('Aws-import-files.zip generated successfully containing {} files.'
+      .format(created_files))
+
 if args.no_perf:
   print('Performance data was not collected.')
