@@ -12,20 +12,24 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 
-version 1.1.8
+version 1.3.3
 
 """
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, wait
 import csv
 import datetime
 import logging
 import os
 import sys
+import time
 import zipfile
 
 import boto3
+from pkg_resources import parse_version as version
 import stratozonedict
+
 
 # global variables
 vm_list = []
@@ -33,10 +37,16 @@ vm_tag_list = []
 vm_disk_list = []
 vm_perf_list = []
 
-
+start = time.time()
 # Initiate the parser
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--no_perf', help='Do Not collect performance data.',
+                    action='store_true')
+parser.add_argument('-t', '--thread_limit',
+                    help='Number of threads for performance collection.',
+                    type=int, default=30)
+parser.add_argument('-p', '--no_public_ip',
+                    help='Do Not collect Public IP addresses.',
                     action='store_true')
 
 
@@ -116,7 +126,8 @@ def report_writer(dictionary_data, field_name_list, file_name):
   try:
     logging.info('Writing %s to the disk', file_name)
     with open('./output/'+file_name, 'w', newline='') as csvfile:
-      writer = csv.DictWriter(csvfile, fieldnames=field_name_list)
+      writer = csv.DictWriter(csvfile, fieldnames=field_name_list,
+                              extrasaction='ignore')
       writer.writeheader()
       for dictionary_value in dictionary_data:
         writer.writerow(dictionary_value)
@@ -202,11 +213,12 @@ def get_network_interface_info(interface_list, l_vm_instance):
 
       ip_list.append(interface['PrivateIpAddress'])
 
-      if 'Association' in interface:
-        if len(interface['Association']['PublicIp']) > 0:
-          l_vm_instance['PublicIPAddress'] = (
-              interface['Association']['PublicIp'])
-          ip_list.append(interface['Association']['PublicIp'])
+      if not args.no_public_ip:
+        if 'Association' in interface:
+          if len(interface['Association']['PublicIp']) > 0:
+            l_vm_instance['PublicIPAddress'] = (
+                interface['Association']['PublicIp'])
+            ip_list.append(interface['Association']['PublicIp'])
 
     l_vm_instance['IpAddressListSemiColonDelimited'] = (';'.join(ip_list))
 
@@ -300,6 +312,7 @@ def get_performance_info(vm_id, region_name, block_device_list):
     perf_client = boto3.client('cloudwatch', region_name)
 
     perf_queries = []
+    global vm_perf_list
     disk_count = 0
 
     perf_queries.append(get_metric_data_query('AWS/EC2', 'CPUUtilization',
@@ -312,13 +325,13 @@ def get_performance_info(vm_id, region_name, block_device_list):
     for block_device in block_device_list:
       perf_queries.append(get_metric_data_query('AWS/EBS', 'VolumeReadOps',
                                                 'VolumeId',
-                                                block_device['Ebs']['VolumeId'],
+                                                block_device,
                                                 'Count',
                                                 'volumereadops'
                                                 + str(disk_count)))
       perf_queries.append(get_metric_data_query('AWS/EBS', 'VolumeWriteOps',
                                                 'VolumeId',
-                                                block_device['Ebs']['VolumeId'],
+                                                block_device,
                                                 'Count',
                                                 'volumewriteops'
                                                 + str(disk_count)))
@@ -434,6 +447,16 @@ def zip_files(dir_name, zip_file_name):
 # Read arguments from the command line
 args = parser.parse_args()
 
+
+if version(boto3.__version__) < version('1.20.20'):
+  print('You are using version of AWS Python SDK that is too old.'
+        '\nVersion installed: {}'
+        '\nPlease upgrade to the latest version.'
+        '\nhttps://boto3.amazonaws.com/v1/documentation/api/'
+        'latest/guide/quickstart.html'.format(boto3.__version__))
+  exit()
+
+
 # create output and log directory
 create_directory('./output')
 
@@ -456,6 +479,7 @@ total_regions = len(regions['Regions'])
 
 # loop through all the regions and for each region get a list of deployed VMs
 # process each VM retrieving all basic data as well as performance metrics.
+
 
 for region in regions['Regions']:
   region_counter += 1
@@ -503,17 +527,32 @@ for region in regions['Regions']:
       if 'NetworkInterfaces' in instance:
         get_network_interface_info(instance['NetworkInterfaces'],
                                    vm_instance)
-      if not args.no_perf:
-        get_performance_info(instance['InstanceId'],
-                             region['RegionName'],
-                             instance['BlockDeviceMappings'])
+
+      disk_id_list = []
+      for tt in instance['BlockDeviceMappings']:
+        disk_id_list.append(tt['Ebs']['VolumeId'])
 
       vm_create_timestamp = get_disk_info(instance['InstanceId'],
                                           instance['BlockDeviceMappings'],
                                           instance['RootDeviceName'])
       vm_instance['CreateDate'] = vm_create_timestamp
+      vm_instance['DiskIDs'] = disk_id_list
 
       vm_list.append(vm_instance)
+
+if not args.no_perf:
+  processes = []
+  print('Inventory collection completed.'
+        ' Collecting performance using {} threads'.format(args.thread_limit))
+
+  with ThreadPoolExecutor(max_workers=args.thread_limit) as executor:
+    for cvm in vm_list:
+      processes.append(executor.submit(get_performance_info,
+                                       cvm['MachineId'],
+                                       cvm['HostingLocation'],
+                                       cvm['DiskIDs']))
+
+  wait(processes)
 
 # write collected data to files
 created_files = 4
@@ -548,7 +587,6 @@ else:
   created_files = 3
 
 zip_files('./output/', 'aws-import-files.zip')
-
 logging.debug('Collection completed at: %s', datetime.datetime.now())
 print('\n\nExport Completed. \n')
 print('Aws-import-files.zip generated successfully containing {} files.'
@@ -556,3 +594,6 @@ print('Aws-import-files.zip generated successfully containing {} files.'
 
 if args.no_perf:
   print('Performance data was not collected.')
+
+if args.no_public_ip:
+  print('Public IP address data was not collected.')

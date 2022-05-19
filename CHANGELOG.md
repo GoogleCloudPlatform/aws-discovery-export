@@ -1,5 +1,10 @@
 # Changelog
 
+### 1.3.3 (2022-05-12)
+
+### Improvement
+* increase VM performance data collection using threads
+
 ### 1.1.8 (2022-03-08)
 
 ### Bug Fixes

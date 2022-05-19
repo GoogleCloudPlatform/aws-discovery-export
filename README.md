@@ -72,13 +72,27 @@ python3 stratozone-aws-export.py --no_perf
 
 - Step 9: Click Download. File is ready for import into StratoZone portal.
 
+## Script Optional Parameters
+* --no_perf (-n) - Default False. Use to indicate whether performance data will collected.
+```
+python3 stratozone-aws-export.py --no_perf
+```
+* --thread_limit (-t) - Default 30. Use to set the maximum number of threads to start during performance data collection.
+```
+python3 stratozone-aws-export.py --thread_limit 40
+```
+* --no_public_ip (-p) - Default False. Use to indicate whether public IP address will be collected.
+```
+python3 stratozone-aws-export.py --no_public_ip
+```
+
 ## Prerequisites
 
   AWS Cloud Shell is the recommended environment to execute the collection script as it has all required components (Python3, AWS SDK) already installed.
 
   If the script will be executed from a workstation following components will need to be installed
   - Python 3.6 or later
-  - AWS SDK for Python (https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html)
+  - AWS SDK version 1.20.20 or newer for Python (https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html)
 
 ## AWS Permissions
 The script needs read-only access to the AWS organization where collection will be performed.
