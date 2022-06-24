@@ -12,7 +12,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 
-version 1.3.3
+version 1.3.4
 
 """
 
@@ -108,7 +108,7 @@ def get_image_size_details(instance_type, l_vm_instance):
   l_vm_instance['MemoryGiB'] = '{:.1f}'.format(
       instance_type_info[0]['MemoryInfo']['SizeInMiB']/1024)
   l_vm_instance['AllocatedProcessorCoreCount'] = (
-      instance_type_info[0]['VCpuInfo']['DefaultCores'])
+      instance_type_info[0]['VCpuInfo']['DefaultVCpus'])
   return l_vm_instance
 
 
@@ -137,7 +137,7 @@ def report_writer(dictionary_data, field_name_list, file_name):
 
 
 def generate_disk_data(vm_id):
-  """If no disk is found generate disk data to prevend import errors.
+  """If no disk is found generate disk data to prevent import errors.
 
   Args:
     vm_id: Instance ID

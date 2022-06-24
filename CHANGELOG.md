@@ -1,9 +1,17 @@
 # Changelog
 
+### 1.3.4 (2022-06-22)
+
+### Bug Fixes
+* use DefaultVCpus instead of DefaultCores for vCPU count.
+
+
 ### 1.3.3 (2022-05-12)
 
 ### Improvement
 * increase VM performance data collection using threads
+* add ability to skip public IP address collection. 
+* Check installed version of boto3 sdk. 
 
 ### 1.1.8 (2022-03-08)
 
