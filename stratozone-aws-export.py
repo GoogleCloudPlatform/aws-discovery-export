@@ -12,7 +12,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 
-version 1.3.4
+version 1.4.1
 
 """
 
@@ -29,6 +29,7 @@ import zipfile
 import boto3
 from pkg_resources import parse_version as version
 import stratozonedict
+import aws_resource_scan 
 
 
 # global variables
@@ -36,6 +37,7 @@ vm_list = []
 vm_tag_list = []
 vm_disk_list = []
 vm_perf_list = []
+region_list = []
 
 start = time.time()
 # Initiate the parser
@@ -48,7 +50,9 @@ parser.add_argument('-t', '--thread_limit',
 parser.add_argument('-p', '--no_public_ip',
                     help='Do Not collect Public IP addresses.',
                     action='store_true')
-
+parser.add_argument('-r', '--resources',
+                    help='Do Not collect deployed resources.',
+                    dest='resources', action='store', default='basic')
 
 def create_directory(dir_name):
   """Create output directory.
@@ -426,7 +430,7 @@ def zip_files(dir_name, zip_file_name):
     zip_file_name: name of the file to be created
 
   """
-  csv_filter = lambda name: 'csv' in name
+  csv_filter = lambda name: 'csv' in name or 'json' in name
 
   if os.path.exists(zip_file_name):
     os.remove(zip_file_name)
@@ -485,6 +489,8 @@ for region in regions['Regions']:
   region_counter += 1
   if not region_is_available(region['RegionName']):
     continue
+  
+  region_list.append(region['RegionName'])
 
   client = boto3.client('ec2', region['RegionName'])
 
@@ -540,6 +546,7 @@ for region in regions['Regions']:
 
       vm_list.append(vm_instance)
 
+
 if not args.no_perf:
   processes = []
   print('Inventory collection completed.'
@@ -585,6 +592,23 @@ if not args.no_perf:
   report_writer(vm_perf_list, field_names, 'perfInfo.csv')
 else:
   created_files = 3
+
+start_time = datetime.datetime.now()
+
+
+if args.resources != 'none':
+  print('Collecting deployed resources.')
+  aws_resource_scan.scan_aws(args.resources, region_list)
+  created_files = created_files + 1 
+else:
+  print('Skipping resource collection.')
+
+end_time = datetime.datetime.now()
+
+tdelta = end_time - start_time
+logging.info('Completing resource collection.')
+logging.info(tdelta) 
+
 
 zip_files('./output/', 'aws-import-files.zip')
 logging.debug('Collection completed at: %s', datetime.datetime.now())

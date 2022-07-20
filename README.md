@@ -85,6 +85,16 @@ python3 stratozone-aws-export.py --thread_limit 40
 ```
 python3 stratozone-aws-export.py --no_public_ip
 ```
+```
+* --resources (-p) - Default basic. Use to indicate resource collection type. Valid options (none, basic, all).
+Basic option collects resources from following services: ec2, s3, route53, apigatewayv2, appconfig, appstream, 
+        appconfigdata, application-autoscaling, autoscaling, eks, efs, ebs, lambda, rds, sns,
+        cloudfront, elasticbeanstalk, iam, glacier, kinesis,dynamodb, elasticache, redshift, sagemaker, sqs,
+        lightsail, cloudwatch, chime, clouddirectory
+For other services use --resources=all option.
+```
+python3 stratozone-aws-export.py --resources=none
+```
 
 ## Prerequisites
 

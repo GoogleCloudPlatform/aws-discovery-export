@@ -1,5 +1,18 @@
 # Changelog
 
+### 1.4.1 (2022-07-14)
+
+### Improvement
+* Add resource collection. List of deployed resource will be imported along with VM data to provide possible mapping to GCP resources.
+* By default resources from following services are collected: 
+        ec2, s3, route53, apigatewayv2, appconfig,
+        appstream, appconfigdata, application-autoscaling,
+        autoscaling, eks, efs, ebs, lambda, rds, sns,
+        cloudfront, elasticbeanstalk, iam, glacier, kinesis,
+        dynamodb, elasticache, redshift, sagemaker, sqs,
+        lightsail, cloudwatch, chime, clouddirectory
+
+
 ### 1.3.4 (2022-06-22)
 
 ### Bug Fixes
