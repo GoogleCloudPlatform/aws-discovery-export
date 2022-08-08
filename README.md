@@ -26,8 +26,8 @@ Script will collect data only on the instances user executing the script has acc
 - [Solution Overview](#solution-overview)
 - [StratoZone AWS export usage](#stratozone-aws-export-usage)
 - [Prerequisites](#prerequisites)
-- [AWS Permissions](#AWS-Permissions)
-- [Support](#Support)
+- [AWS Permissions](#aws-permissions)
+- [Support](#support)
 
 ## Stratozone AWS export usage
 
@@ -84,7 +84,6 @@ python3 stratozone-aws-export.py --thread_limit 40
 * --no_public_ip (-p) - Default False. Use to indicate whether public IP address will be collected.
 ```
 python3 stratozone-aws-export.py --no_public_ip
-```
 ```
 * --resources (-p) - Default basic. Use to indicate resource collection type. Valid options (none, basic, all).
 Basic option collects resources from following services: ec2, s3, route53, apigatewayv2, appconfig, appstream, 
