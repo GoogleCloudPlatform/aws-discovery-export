@@ -1,5 +1,9 @@
 # Changelog
 
+### 1.4.2 (2022-10-04)
+### Bug Fixes
+* Set instance memory utilization to blank instead of 0 to indicate that this is not a value for powered off VM
+
 ### 1.4.1 (2022-07-14)
 
 ### Improvement

@@ -21,6 +21,8 @@ This script collects information from provided AWS account and generates csv fil
 Generated files will be placed in ./output directory. For ease of use a compress zip file will be created that can be imported directly to StratoZone using the import procedure. 
 Script will collect data only on the instances user executing the script has access to. 
 
+Default thread setting is very conservative to allow for cloud shell execution. If the script is executed on desktop/server consider increasing the thread count using --thread_limit parameter. 
+
 **NOTE** - Due to the unavailability of instance memory utilization, that metric will be ignored by the StratoZone recommendation engine.
 
 - [Solution Overview](#solution-overview)

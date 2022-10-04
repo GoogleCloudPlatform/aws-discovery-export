@@ -12,7 +12,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 
-version 1.4.1
+version 1.4.2
 
 """
 
@@ -380,7 +380,7 @@ def get_performance_info(vm_id, region_name, block_device_list):
             (tmp_read_io /1800))
         vm_perf_info['DiskWriteOperationsPerSec'] = '{:.4f}'.format(
             (tmp_write_io /1800))
-        vm_perf_info['AvailableMemoryBytes'] = 0
+        vm_perf_info['AvailableMemoryBytes'] = ''
 
         vm_perf_list.append(vm_perf_info)
 
