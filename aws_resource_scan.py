@@ -22,6 +22,7 @@ import random
 import sys
 import time
 import traceback
+import signal
 
 import boto3
 import filter_aws
@@ -41,6 +42,18 @@ result_nothing = '---'
 result_something = '+++'
 result_error = '!!!'
 result_no_access = '>:|'
+run_script = True
+
+
+def handler_stop_signals(signum, frame):
+    global run_script
+    run_script = False
+    print('Exiting application')
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, handler_stop_signals)
+signal.signal(signal.SIGTERM, handler_stop_signals)
+
 
 # Resource object definition
 resource_info = {
@@ -64,6 +77,7 @@ object_name_map = {
 
 not_available_strings = (reference_aws.not_available_for_region_strings +
                          reference_aws.not_available_for_account_strings)
+
 
 
 class RawListing(object):
@@ -600,7 +614,6 @@ def do_query(services, selected_regions=(), selected_operations=(), verbose=0,
 
       for operation in get_listing_operations(service,
                                               region, selected_operations):
-
         if operation in reference_aws.DEPENDENT_OPERATIONS:
           dependencies[reference_aws.DEPENDENT_OPERATIONS[operation],
                        region] = ([service, region,
@@ -619,7 +632,7 @@ def do_query(services, selected_regions=(), selected_operations=(), verbose=0,
   results_by_type = execute_query(to_run, verbose, parallel, results_by_type)
 
 
-def scan_aws(service_collection, region_list):
+def scan_aws(service_collection, region_list, thread_limit):
   """Start scan of all AWS regions looking for specified services.
 
   Args:
@@ -631,35 +644,37 @@ def scan_aws(service_collection, region_list):
   Resources.resource_count = 0
 
   operation = []
-  parallel = 40
+  while run_script:
+    if service_collection == 'basic':
+      services = ['ec2', 's3', 'route53', 'apigatewayv2', 'appconfig',
+                  'appstream', 'appconfigdata', 'application-autoscaling',
+                  'autoscaling', 'eks', 'efs', 'ebs', 'lambda', 'rds', 'sns',
+                  'cloudfront', 'elasticbeanstalk', 'iam', 'glacier', 'kinesis',
+                  'dynamodb', 'elasticache', 'redshift', 'sagemaker', 'sqs',
+                  'lightsail', 'cloudwatch', 'chime', 'clouddirectory']
+    else:
+      services = get_services()
 
-  if service_collection == 'basic':
-    services = ['ec2', 's3', 'route53', 'apigatewayv2', 'appconfig',
-                'appstream', 'appconfigdata', 'application-autoscaling',
-                'autoscaling', 'eks', 'efs', 'ebs', 'lambda', 'rds', 'sns',
-                'cloudfront', 'elasticbeanstalk', 'iam', 'glacier', 'kinesis',
-                'dynamodb', 'elasticache', 'redshift', 'sagemaker', 'sqs',
-                'lightsail', 'cloudwatch', 'chime', 'clouddirectory']
-  else:
-    services = get_services()
+    global _clients
 
-  global _clients
+    region_count = 0
+    print('Collecting deployed resources using {} threads.'.format(thread_limit))
+    for region in region_list:
+      region_count = region_count + 1
 
-  region_count = 0
-  for region in region_list:
-    region_count = region_count + 1
+      regions = [region]
+      do_query(
+          services,
+          regions,
+          operation,
+          verbose=0,
+          parallel=thread_limit
+      )
+      _clients = {}
 
-    regions = [region]
-    do_query(
-        services,
-        regions,
-        operation,
-        verbose=0,
-        parallel=parallel
-    )
-    _clients = {}
-
-  with open('./output/resources.json', 'w+', encoding='utf-8') as f:
-    json.dump(_resource_list, f, ensure_ascii=False, indent=4)
+    with open('./output/resources.json', 'w+', encoding='utf-8') as f:
+      json.dump(_resource_list, f, ensure_ascii=False, indent=4)
+    
+    break
 
   return
