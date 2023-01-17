@@ -12,7 +12,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 
-version 1.4.3
+version 1.5.1
 
 """
 
@@ -225,6 +225,7 @@ def get_network_interface_info(interface_list, l_vm_instance):
     for nic_count, interface in enumerate(interface_list):
       if nic_count == 0:
         l_vm_instance['PrimaryIPAddress'] = interface['PrivateIpAddress']
+        l_vm_instance['PrimaryMACAddress'] = interface['MacAddress']
 
       ip_list.append(interface['PrivateIpAddress'])
 
@@ -371,7 +372,7 @@ def get_performance_info(vm_id, region_name, block_device_list):
         vm_perf_info['MachineId'] = vm_id
         vm_perf_info['TimeStamp'] = (
             response['MetricDataResults'][0]['Timestamps'][i].strftime(
-                '%m/%d/%Y, %H:%M:%S'))
+                '%Y/%m/%d, %H:%M:%S'))
         vm_perf_info['CpuUtilizationPercentage'] = '{:.2f}'.format(
             response['MetricDataResults'][0]['Values'][i])
         vm_perf_info['NetworkBytesPerSecSent'] = '{:.4f}'.format(
@@ -393,6 +394,7 @@ def get_performance_info(vm_id, region_name, block_device_list):
         vm_perf_info['DiskWriteOperationsPerSec'] = '{:.4f}'.format(
             (tmp_write_io /1800))
         vm_perf_info['AvailableMemoryBytes'] = ''
+        vm_perf_info['MemoryUtilizationPercentage'] = ''
 
         vm_perf_list.append(vm_perf_info)
 
@@ -556,7 +558,7 @@ while run_script:
         vm_create_timestamp = get_disk_info(instance['InstanceId'],
                                             instance['BlockDeviceMappings'],
                                             instance['RootDeviceName'])
-        vm_instance['CreateDate'] = vm_create_timestamp
+        vm_instance['CreateDate'] = vm_create_timestamp.strftime('%Y/%m/%d, %H:%M:%S')
         vm_instance['DiskIDs'] = disk_id_list
 
         vm_list.append(vm_instance)
@@ -585,13 +587,14 @@ while run_script:
   # write collected data to files
   created_files = 4
 
-  field_names = ['MachineId', 'MachineName', 'PrimaryIPAddress',
+  field_names = ['MachineId', 'MachineName',
+                'PrimaryIPAddress','PrimaryMACAddress',
                 'PublicIPAddress', 'IpAddressListSemiColonDelimited',
-                'TotalDiskAllocatedGiB', 'TotalDiskUsedGiB', 'MachineTypeLabel',
-                'AllocatedProcessorCoreCount', 'MemoryGiB', 'HostingLocation',
-                'OsType', 'OsPublisher', 'OsName', 'OsVersion',
-                'MachineStatus', 'ProvisioningState', 'CreateDate',
-                'IsPhysical', 'Source']
+                'TotalDiskAllocatedGiB', 'TotalDiskUsedGiB', 
+                'MachineTypeLabel', 'AllocatedProcessorCoreCount',
+                'MemoryGiB', 'HostingLocation', 'OsType',
+                'OsPublisher', 'OsName', 'OsVersion', 'MachineStatus',
+                'ProvisioningState', 'CreateDate', 'IsPhysical', 'Source']
 
   report_writer(vm_list, field_names, 'vmInfo.csv')
 
@@ -605,9 +608,9 @@ while run_script:
   report_writer(vm_disk_list, field_names, 'diskInfo.csv')
 
   field_names = ['MachineId', 'TimeStamp', 'CpuUtilizationPercentage',
-                'AvailableMemoryBytes', 'DiskReadOperationsPerSec',
-                'DiskWriteOperationsPerSec', 'NetworkBytesPerSecSent',
-                'NetworkBytesPerSecReceived']
+                'MemoryUtilizationPercentage','AvailableMemoryBytes', 
+                'DiskReadOperationsPerSec', 'DiskWriteOperationsPerSec',
+                'NetworkBytesPerSecSent', 'NetworkBytesPerSecReceived']
 
   if not args.no_perf:
     report_writer(vm_perf_list, field_names, 'perfInfo.csv')

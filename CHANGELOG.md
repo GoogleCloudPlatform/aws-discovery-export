@@ -1,5 +1,12 @@
 # Changelog
 
+### 1.5.1 (2023-01-17)
+
+### Improvement
+* Change datetime format to ISO standard (yyyy-mm-dd hh:mm:ss)
+* Add PrimaryMACAddress column to vmInfo data file
+* Add MemoryUtilizationPercentage column to perfInfo file
+
 ### 1.4.3 (2022-10-31)
 ### Bug Fixes
 * Add graceful script exit on cancel.
