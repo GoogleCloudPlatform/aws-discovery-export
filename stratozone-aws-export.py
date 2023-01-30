@@ -13,13 +13,13 @@
  limitations under the License.
 
 version 1.5.1
-
 """
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, wait
 import csv
 import datetime
+import json
 import logging
 import os
 import sys
@@ -30,9 +30,9 @@ import concurrent.futures.thread
 
 import boto3
 from pkg_resources import parse_version as version
+from db.rds_scanner import RdsScanner
 import stratozonedict
-import aws_resource_scan 
-
+import aws_resource_scan
 
 # global variables
 vm_list = []
@@ -46,24 +46,44 @@ run_script = True
 start = time.time()
 # Initiate the parser
 parser = argparse.ArgumentParser()
-parser.add_argument('-n', '--no_perf', help='Do Not collect performance data.',
-                    action='store_true')
-parser.add_argument('-t', '--thread_limit',
-                    help='Number of threads for performance collection.',
-                    type=int, default=30)
-parser.add_argument('-p', '--no_public_ip',
-                    help='Do Not collect Public IP addresses.',
-                    action='store_true')
-parser.add_argument('-r', '--resources',
-                    help='Do Not collect deployed resources.',
-                    dest='resources', action='store', default='basic')
+parser.add_argument(
+    '-m',
+    '--collection_mode',
+    help='Choose if you want to run virtual machine collection or managed services collection.',
+    choices=['VirtualMachine', 'ManagedService'],
+    default='VirtualMachine')
+
+parser.add_argument(
+    '-n',
+    '--no_perf',
+    help='Do Not collect performance data.',
+    action='store_true')
+parser.add_argument(
+    '-t',
+    '--thread_limit',
+    help='Number of threads for performance collection.',
+    type=int,
+    default=30)
+parser.add_argument(
+    '-p',
+    '--no_public_ip',
+    help='Do Not collect Public IP addresses.',
+    action='store_true')
+parser.add_argument(
+    '-r',
+    '--resources',
+    help='Do Not collect deployed resources.',
+    dest='resources',
+    action='store',
+    default='basic')
 
 
 def handler_stop_signals(signum, frame):
-    global run_script
-    run_script = False
-    print('Exiting application')
-    sys.exit(0)
+  global run_script
+  run_script = False
+  print('Exiting application')
+  sys.exit(0)
+
 
 def create_directory(dir_name):
   """Create output directory.
@@ -90,7 +110,9 @@ def get_image_info(image_id, l_vm_instance):
       Dictionary object.
   """
   try:
-    disk_image = client.describe_images(ImageIds=[image_id,]).get('Images')
+    disk_image = client.describe_images(ImageIds=[
+        image_id,
+    ]).get('Images')
     if len(disk_image) > 0:
       l_vm_instance['OsType'] = disk_image[0].get('PlatformDetails')
       l_vm_instance['OsPublisher'] = disk_image[0].get('Description')
@@ -118,31 +140,33 @@ def get_image_size_details(instance_type, l_vm_instance):
       Dictionary object.
   """
   instance_type_info = (
-      client.describe_instance_types(
-          InstanceTypes=[instance_type,]).get('InstanceTypes'))
+      client.describe_instance_types(InstanceTypes=[
+          instance_type,
+      ]).get('InstanceTypes'))
   l_vm_instance['MemoryGiB'] = '{:.1f}'.format(
-      instance_type_info[0]['MemoryInfo']['SizeInMiB']/1024)
+      instance_type_info[0]['MemoryInfo']['SizeInMiB'] / 1024)
   l_vm_instance['AllocatedProcessorCoreCount'] = (
       instance_type_info[0]['VCpuInfo']['DefaultVCpus'])
   return l_vm_instance
 
 
-def report_writer(dictionary_data, field_name_list, file_name):
+def report_writer(dictionary_data, field_name_list, file_name, directory):
   """write data contained in dictionary list into csv file.
 
   Args:
     dictionary_data: dictionary object
     field_name_list: column names
     file_name: file name to be created
+    directory: parent directory
 
   Returns:
       Dictionary object.
   """
   try:
     logging.info('Writing %s to the disk', file_name)
-    with open('./output/'+file_name, 'w', newline='') as csvfile:
-      writer = csv.DictWriter(csvfile, fieldnames=field_name_list,
-                              extrasaction='ignore')
+    with open(directory + file_name, 'w', newline='') as csvfile:
+      writer = csv.DictWriter(
+          csvfile, fieldnames=field_name_list, extrasaction='ignore')
       writer.writeheader()
       for dictionary_value in dictionary_data:
         writer.writerow(dictionary_value)
@@ -184,8 +208,9 @@ def get_disk_info(vm_id, block_device_list, root_device_name):
     for block_device in block_device_list:
       disk = stratozonedict.vm_disk.copy()
 
-      volume = client.describe_volumes(
-          VolumeIds=[block_device['Ebs']['VolumeId'],]).get('Volumes')
+      volume = client.describe_volumes(VolumeIds=[
+          block_device['Ebs']['VolumeId'],
+      ]).get('Volumes')
 
       disk['MachineId'] = vm_id
       disk['DiskLabel'] = block_device['DeviceName']
@@ -217,7 +242,6 @@ def get_network_interface_info(interface_list, l_vm_instance):
   Args:
     interface_list: List of network interfaces
     l_vm_instance: instance dictionary object
-
   """
   try:
     ip_list = []
@@ -277,8 +301,12 @@ def get_instance_tags(vm_id, tag_dictionary, l_vm_instance):
     return l_vm_instance
 
 
-def get_metric_data_query(namespace, metric_name,
-                          dimension_name, dimension_value, unit, query_id=''):
+def get_metric_data_query(namespace,
+                          metric_name,
+                          dimension_name,
+                          dimension_value,
+                          unit,
+                          query_id=''):
   """Get performance metrics JSON query for the VM.
 
   Args:
@@ -299,13 +327,14 @@ def get_metric_data_query(namespace, metric_name,
       'Id': query_id,
       'MetricStat': {
           'Metric': {
-              'Namespace': namespace,
-              'MetricName': metric_name,
-              'Dimensions': [
-                  {
-                      'Name': dimension_name,
-                      'Value': dimension_value
-                  },]
+              'Namespace':
+                  namespace,
+              'MetricName':
+                  metric_name,
+              'Dimensions': [{
+                  'Name': dimension_name,
+                  'Value': dimension_value
+              },]
           },
           'Period': 1800,
           'Stat': 'Average',
@@ -325,41 +354,38 @@ def get_performance_info(vm_id, region_name, block_device_list):
     block_device_list: list of devices (disks) attached to the vm
   """
   try:
-     
+
     perf_client = boto3.client('cloudwatch', region_name)
 
     perf_queries = []
     global vm_perf_list
     disk_count = 0
 
-    perf_queries.append(get_metric_data_query('AWS/EC2', 'CPUUtilization',
-                                              'InstanceId', vm_id, 'Percent'))
-    perf_queries.append(get_metric_data_query('AWS/EC2', 'NetworkOut',
-                                              'InstanceId', vm_id,
-                                              'Bytes'))
-    perf_queries.append(get_metric_data_query('AWS/EC2', 'NetworkIn',
-                                              'InstanceId', vm_id, 'Bytes'))
+    perf_queries.append(
+        get_metric_data_query('AWS/EC2', 'CPUUtilization', 'InstanceId', vm_id,
+                              'Percent'))
+    perf_queries.append(
+        get_metric_data_query('AWS/EC2', 'NetworkOut', 'InstanceId', vm_id,
+                              'Bytes'))
+    perf_queries.append(
+        get_metric_data_query('AWS/EC2', 'NetworkIn', 'InstanceId', vm_id,
+                              'Bytes'))
     for block_device in block_device_list:
-      perf_queries.append(get_metric_data_query('AWS/EBS', 'VolumeReadOps',
-                                                'VolumeId',
-                                                block_device,
-                                                'Count',
-                                                'volumereadops'
-                                                + str(disk_count)))
-      perf_queries.append(get_metric_data_query('AWS/EBS', 'VolumeWriteOps',
-                                                'VolumeId',
-                                                block_device,
-                                                'Count',
-                                                'volumewriteops'
-                                                + str(disk_count)))
+      perf_queries.append(
+          get_metric_data_query('AWS/EBS', 'VolumeReadOps', 'VolumeId',
+                                block_device, 'Count',
+                                'volumereadops' + str(disk_count)))
+      perf_queries.append(
+          get_metric_data_query('AWS/EBS', 'VolumeWriteOps', 'VolumeId',
+                                block_device, 'Count',
+                                'volumewriteops' + str(disk_count)))
       disk_count = disk_count + 1
 
       response = perf_client.get_metric_data(
           MetricDataQueries=perf_queries,
           StartTime=datetime.datetime.utcnow() - datetime.timedelta(days=30),
           EndTime=datetime.datetime.utcnow(),
-          ScanBy='TimestampAscending'
-      )
+          ScanBy='TimestampAscending')
 
     first_arr_size = len(response['MetricDataResults'][0]['Values'])
 
@@ -390,9 +416,9 @@ def get_performance_info(vm_id, region_name, block_device_list):
               response['MetricDataResults'][4 + j]['Values'][i])
 
         vm_perf_info['DiskReadOperationsPerSec'] = '{:.4f}'.format(
-            (tmp_read_io /1800))
+            (tmp_read_io / 1800))
         vm_perf_info['DiskWriteOperationsPerSec'] = '{:.4f}'.format(
-            (tmp_write_io /1800))
+            (tmp_write_io / 1800))
         vm_perf_info['AvailableMemoryBytes'] = ''
         vm_perf_info['MemoryUtilizationPercentage'] = ''
 
@@ -407,9 +433,10 @@ def display_script_progress():
   """Display collection progress."""
   try:
     sys.stdout.write('\r')
-    sys.stdout.write('%s[%s%s] %i/%i\r' % ('Regions: ', '#'*region_counter,
-                                           '.'*(total_regions-region_counter),
-                                           region_counter, total_regions))
+    sys.stdout.write(
+        '%s[%s%s] %i/%i\r' %
+        ('Regions: ', '#' * region_counter, '.' *
+         (total_regions - region_counter), region_counter, total_regions))
     sys.stdout.flush()
   except Exception as e:
     logging.error('error in display_script_progress')
@@ -424,7 +451,6 @@ def region_is_available(l_region):
 
   Returns:
     true/false
-
   """
   regional_sts = boto3.client('sts', l_region)
   try:
@@ -442,7 +468,6 @@ def zip_files(dir_name, zip_file_name):
   Args:
     dir_name: source directory
     zip_file_name: name of the file to be created
-
   """
   csv_filter = lambda name: 'csv' in name or 'json' in name
 
@@ -468,7 +493,6 @@ signal.signal(signal.SIGTERM, handler_stop_signals)
 # Read arguments from the command line
 args = parser.parse_args()
 
-
 if version(boto3.__version__) < version('1.20.20'):
   print('You are using version of AWS Python SDK that is too old.'
         '\nVersion installed: {}'
@@ -479,169 +503,187 @@ if version(boto3.__version__) < version('1.20.20'):
 
 while run_script:
   # create output and log directory
-  create_directory('./output')
+  create_directory('./output/vm')
+  create_directory('./output/services')
 
   log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-  logging.basicConfig(filename='./output/stratozone-aws-export.log',
-                      format=log_format,
-                      level=logging.ERROR)
+  logging.basicConfig(
+      filename='./output/stratozone-aws-export.log',
+      format=log_format,
+      level=logging.ERROR)
   logging.debug('Starting collection at: %s', datetime.datetime.now())
 
+  if args.collection_mode == 'VirtualMachine':
+    ec2_client = boto3.client('ec2')
 
-  ec2_client = boto3.client('ec2')
+    logging.info('Get all regions')
+    regions = ec2_client.describe_regions(AllRegions=True)
 
-  logging.info('Get all regions')
-  regions = ec2_client.describe_regions(AllRegions=True)
+    logging.info('Get Organization ID')
 
-  logging.info('Get Organization ID')
+    region_counter = 0
+    total_regions = len(regions['Regions'])
 
-  region_counter = 0
-  total_regions = len(regions['Regions'])
+    # loop through all the regions and for each region get a list of deployed VMs
+    # process each VM retrieving all basic data as well as performance metrics.
 
-  # loop through all the regions and for each region get a list of deployed VMs
-  # process each VM retrieving all basic data as well as performance metrics.
+    for region in regions['Regions']:
+      region_counter += 1
+      if not region_is_available(region['RegionName']):
+        continue
 
+      region_list.append(region['RegionName'])
 
-  for region in regions['Regions']:
-    region_counter += 1
-    if not region_is_available(region['RegionName']):
-      continue
-    
-    region_list.append(region['RegionName'])
+      client = boto3.client('ec2', region['RegionName'])
 
-    client = boto3.client('ec2', region['RegionName'])
+      display_script_progress()
 
-    display_script_progress()
+      specific_instance = client.describe_instances()
 
-    specific_instance = client.describe_instances()
+      for reservation in specific_instance['Reservations']:
+        for instance in reservation['Instances']:
+          if instance.get('State').get('Name') == 'terminated':
+            continue
 
-    for reservation in specific_instance['Reservations']:
-      for instance in reservation['Instances']:
-        if instance.get('State').get('Name') == 'terminated':
-          continue
+          vm_instance = stratozonedict.vm_basic_info.copy()
 
-        vm_instance = stratozonedict.vm_basic_info.copy()
+          vm_instance['MachineId'] = instance.get('InstanceId')
+          vm_instance['HostingLocation'] = region.get('RegionName')
+          vm_instance['MachineTypeLabel'] = instance.get('InstanceType')
+          vm_instance['MachineStatus'] = instance.get('State').get('Name')
+          vm_instance = get_image_info(instance.get('ImageId'), vm_instance)
 
-        vm_instance['MachineId'] = instance.get('InstanceId')
-        vm_instance['HostingLocation'] = region.get('RegionName')
-        vm_instance['MachineTypeLabel'] = instance.get('InstanceType')
-        vm_instance['MachineStatus'] = instance.get('State').get('Name')
-        vm_instance = get_image_info(instance.get('ImageId'), vm_instance)
+          if vm_instance['OsType'] == 'unknown':
+            tmp_os_value = 'Linux'
+            if ('windows' in instance.get('PlatformDetails').lower() or
+                'sql' in instance.get('PlatformDetails').lower()):
+              tmp_os_value = 'Windows'
 
-        if vm_instance['OsType'] == 'unknown':
-          tmp_os_value = 'Linux'
-          if ('windows' in instance.get('PlatformDetails').lower() or
-              'sql' in instance.get('PlatformDetails').lower()):
-            tmp_os_value = 'Windows'
+            vm_instance['OsType'] = tmp_os_value
+            vm_instance['OsPublisher'] = tmp_os_value
 
-          vm_instance['OsType'] = tmp_os_value
-          vm_instance['OsPublisher'] = tmp_os_value
+          vm_instance = get_image_size_details(
+              instance.get('InstanceType'), vm_instance)
 
-        vm_instance = get_image_size_details(instance.get('InstanceType'),
-                                            vm_instance)
+          if 'Tags' in instance:
+            vm_instance = get_instance_tags(
+                instance.get('InstanceId'), instance['Tags'], vm_instance)
+          else:
+            vm_instance['MachineName'] = vm_instance['MachineId']
 
-        if 'Tags' in instance:
-          vm_instance = get_instance_tags(instance.get('InstanceId'),
-                                          instance['Tags'],
-                                          vm_instance)
-        else:
-          vm_instance['MachineName'] = vm_instance['MachineId']
+          if 'NetworkInterfaces' in instance:
+            get_network_interface_info(instance['NetworkInterfaces'],
+                                       vm_instance)
 
-        if 'NetworkInterfaces' in instance:
-          get_network_interface_info(instance['NetworkInterfaces'],
-                                    vm_instance)
+          disk_id_list = []
+          for tt in instance['BlockDeviceMappings']:
+            disk_id_list.append(tt['Ebs']['VolumeId'])
 
-        disk_id_list = []
-        for tt in instance['BlockDeviceMappings']:
-          disk_id_list.append(tt['Ebs']['VolumeId'])
+          vm_create_timestamp = get_disk_info(instance['InstanceId'],
+                                              instance['BlockDeviceMappings'],
+                                              instance['RootDeviceName'])
+          vm_instance['CreateDate'] = vm_create_timestamp.strftime(
+              '%Y/%m/%d, %H:%M:%S')
+          vm_instance['DiskIDs'] = disk_id_list
 
-        vm_create_timestamp = get_disk_info(instance['InstanceId'],
-                                            instance['BlockDeviceMappings'],
-                                            instance['RootDeviceName'])
-        vm_instance['CreateDate'] = vm_create_timestamp.strftime('%Y/%m/%d, %H:%M:%S')
-        vm_instance['DiskIDs'] = disk_id_list
+          vm_list.append(vm_instance)
 
-        vm_list.append(vm_instance)
+    if not args.no_perf:
+      processes = []
+      print('Inventory collection completed.'
+            ' Collecting performance using {} threads'.format(
+                args.thread_limit))
 
+      with ThreadPoolExecutor(max_workers=args.thread_limit) as executor:
+        try:
+          for cvm in vm_list:
+            processes.append(
+                executor.submit(get_performance_info, cvm['MachineId'],
+                                cvm['HostingLocation'], cvm['DiskIDs']))
+        except KeyboardInterrupt:
+          executor._threads.clear()
+          concurrent.futures.thread._threads_queues.clear()
+          sys.exit()
+          raise
 
-  if not args.no_perf:
-    processes = []
-    print('Inventory collection completed.'
-          ' Collecting performance using {} threads'.format(args.thread_limit))
+      wait(processes)
 
-    with ThreadPoolExecutor(max_workers=args.thread_limit) as executor:
-      try:
-        for cvm in vm_list:
-          processes.append(executor.submit(get_performance_info,
-                                          cvm['MachineId'],
-                                          cvm['HostingLocation'],
-                                          cvm['DiskIDs']))
-      except KeyboardInterrupt:
-        executor._threads.clear()
-        concurrent.futures.thread._threads_queues.clear()
-        sys.exit()
-        raise
+    # write collected data to files
+    created_files = 4
 
-    wait(processes)
+    field_names = [
+        'MachineId', 'MachineName', 'PrimaryIPAddress', 'PrimaryMACAddress',
+        'PublicIPAddress', 'IpAddressListSemiColonDelimited',
+        'TotalDiskAllocatedGiB', 'TotalDiskUsedGiB', 'MachineTypeLabel',
+        'AllocatedProcessorCoreCount', 'MemoryGiB', 'HostingLocation', 'OsType',
+        'OsPublisher', 'OsName', 'OsVersion', 'MachineStatus',
+        'ProvisioningState', 'CreateDate', 'IsPhysical', 'Source'
+    ]
 
-  # write collected data to files
-  created_files = 4
+    report_writer(vm_list, field_names, 'vmInfo.csv', './output/vm/')
 
-  field_names = ['MachineId', 'MachineName',
-                'PrimaryIPAddress','PrimaryMACAddress',
-                'PublicIPAddress', 'IpAddressListSemiColonDelimited',
-                'TotalDiskAllocatedGiB', 'TotalDiskUsedGiB', 
-                'MachineTypeLabel', 'AllocatedProcessorCoreCount',
-                'MemoryGiB', 'HostingLocation', 'OsType',
-                'OsPublisher', 'OsName', 'OsVersion', 'MachineStatus',
-                'ProvisioningState', 'CreateDate', 'IsPhysical', 'Source']
+    if vm_tag_list:
+      field_names = ['MachineId', 'Key', 'Value']
+      report_writer(vm_tag_list, field_names, 'tagInfo.csv', './output/vm/')
 
-  report_writer(vm_list, field_names, 'vmInfo.csv')
+    field_names = [
+        'MachineId', 'DiskLabel', 'SizeInGib', 'UsedInGib', 'StorageTypeLabel'
+    ]
 
-  if vm_tag_list:
-    field_names = ['MachineId', 'Key', 'Value']
-    report_writer(vm_tag_list, field_names, 'tagInfo.csv')
+    report_writer(vm_disk_list, field_names, 'diskInfo.csv', './output/vm/')
 
-  field_names = ['MachineId', 'DiskLabel', 'SizeInGib', 'UsedInGib',
-                'StorageTypeLabel']
+    field_names = [
+        'MachineId', 'TimeStamp', 'CpuUtilizationPercentage',
+        'MemoryUtilizationPercentage', 'AvailableMemoryBytes',
+        'DiskReadOperationsPerSec', 'DiskWriteOperationsPerSec',
+        'NetworkBytesPerSecSent', 'NetworkBytesPerSecReceived'
+    ]
 
-  report_writer(vm_disk_list, field_names, 'diskInfo.csv')
+    if not args.no_perf:
+      report_writer(vm_perf_list, field_names, 'perfInfo.csv', './output/vm/')
+    else:
+      created_files = 3
 
-  field_names = ['MachineId', 'TimeStamp', 'CpuUtilizationPercentage',
-                'MemoryUtilizationPercentage','AvailableMemoryBytes', 
-                'DiskReadOperationsPerSec', 'DiskWriteOperationsPerSec',
-                'NetworkBytesPerSecSent', 'NetworkBytesPerSecReceived']
+    zip_files('./output/vm/', 'vm-aws-import-files.zip')
+    logging.debug('Collection completed at: %s', datetime.datetime.now())
+    print('\nExport Completed. \n')
+    print('vm-aws-import-files.zip generated successfully containing {} files.'
+          .format(created_files))
 
-  if not args.no_perf:
-    report_writer(vm_perf_list, field_names, 'perfInfo.csv')
-  else:
-    created_files = 3
+    if args.no_perf:
+      print('Performance data was not collected.')
 
-  start_time = datetime.datetime.now()
+    if args.no_public_ip:
+      print('Public IP address data was not collected.')
+    break
 
+  elif args.collection_mode == 'ManagedService':
+    start_time = datetime.datetime.now()
+    created_files = 0
 
-  if args.resources != 'none':
-    aws_resource_scan.scan_aws(args.resources, region_list, args.thread_limit)
-    created_files = created_files + 1 
-  else:
-    print('Skipping resource collection.            ')
+    if args.resources != 'none' and 1 == 2:
+      aws_resource_scan.scan_aws(args.resources, region_list, args.thread_limit)
+      created_files = created_files + 1
+    else:
+      print('Skipping resource collection.            ')
 
-  end_time = datetime.datetime.now()
+    end_time = datetime.datetime.now()
 
-  time_delta = end_time - start_time
-  logging.info('Completing resource collection.')
-  logging.info(time_delta) 
+    time_delta = end_time - start_time
+    logging.info('Completing resource collection.')
+    logging.info(time_delta)
 
+    with open('db_secrets.json', 'r') as f:
+      data = json.load(f)
 
-  zip_files('./output/', 'aws-import-files.zip')
-  logging.debug('Collection completed at: %s', datetime.datetime.now())
-  print('\nExport Completed. \n')
-  print('Aws-import-files.zip generated successfully containing {} files.'
-        .format(created_files))
+    for region in data:
+      for secret in region['secrets']:
+        scanner = RdsScanner()
+        if scanner.scan(secret, region['region']):
+          created_files += 1
 
-  if args.no_perf:
-    print('Performance data was not collected.')
-
-  if args.no_public_ip:
-    print('Public IP address data was not collected.')
-  break
+    zip_files('./output/services/', 'services-aws-import-files.zip')
+    logging.debug('Collection completed at: %s', datetime.datetime.now())
+    print('\nExport Completed. \n')
+    print('services-aws-import-files.zip generated successfully containing {} files.'
+          .format(created_files))

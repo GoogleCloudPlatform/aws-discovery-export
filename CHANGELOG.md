@@ -1,7 +1,11 @@
 # Changelog
 
-### 1.5.1 (2023-01-17)
+### 1.5.2 (2023-01-30)
+### Improvement
+* Split virtual machine and managed service collection into two separate files
+* Add rds collection 
 
+### 1.5.1 (2023-01-17)
 ### Improvement
 * Change datetime format to ISO standard (yyyy-mm-dd hh:mm:ss)
 * Add PrimaryMACAddress column to vmInfo data file
