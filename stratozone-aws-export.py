@@ -673,14 +673,17 @@ while run_script:
     logging.info('Completing resource collection.')
     logging.info(time_delta)
 
-    with open('db_secrets.json', 'r') as f:
-      data = json.load(f)
+    if os.path.isfile('db_secrets.json'):
+      with open('db_secrets.json', 'r') as f:
+        data = json.load(f)
 
-    for region in data:
-      for secret in region['secrets']:
-        scanner = RdsScanner()
-        if scanner.scan(secret, region['region']):
-          created_files += 1
+      for region in data:
+        for secret in region['secrets']:
+          scanner = RdsScanner()
+          if scanner.scan(secret, region['region']):
+            created_files += 1
+    else:
+      print('Skipping database collection.')
 
     zip_files('./output/services/', 'services-aws-import-files.zip')
     logging.debug('Collection completed at: %s', datetime.datetime.now())
