@@ -661,7 +661,7 @@ while run_script:
     start_time = datetime.datetime.now()
     created_files = 0
 
-    if args.resources != 'none' and 1 == 2:
+    if args.resources != 'none':
       aws_resource_scan.scan_aws(args.resources, region_list, args.thread_limit)
       created_files = created_files + 1
     else:
@@ -690,3 +690,4 @@ while run_script:
     print('\nExport Completed. \n')
     print('services-aws-import-files.zip generated successfully containing {} files.'
           .format(created_files))
+    break
