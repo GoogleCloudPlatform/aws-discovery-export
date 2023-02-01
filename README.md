@@ -17,7 +17,7 @@ limitations under the License.
 ## Solution Overview
 __Warning:__ This project is currently in beta. Please open an issue if you would like to report a bug or documentation issue, request a feature, or have a question.
 
-This script collects information from provided AWS account and generates csv files for import into StratoZone portal for analysis.
+This script collects information from provided AWS account and generates csv/json files for import into StratoZone portal for analysis.
 Generated files will be placed in ./output directory. For ease of use a compress zip file will be created that can be imported directly to StratoZone using the import procedure. 
 Script will collect data only on the instances user executing the script has access to. 
 
@@ -38,6 +38,8 @@ Default thread setting is very conservative to allow for cloud shell execution. 
 - Step 2: Launch Cloud Shell \
 !["Image of Cloud Shell Console highlighting an icon with a greater-than and underscore"](images/aws-cloudshell.png)
 
+> __NOTE:__ For RDS collection, please use an ec2 instance that can connect to the database.
+
 - Step 3: Clone project to local shell
 ```
 git clone https://github.com/GoogleCloudPlatform/aws-to-stratozone-export.git
@@ -49,18 +51,25 @@ cd aws-to-stratozone-export/
 ```
 
 - Step 5: Run script to start collection
-```
-python3 stratozone-aws-export.py
-```
 
-__NOTE:__ To skip performance data collection add `--no_perf` switch 
-```
-python3 stratozone-aws-export.py --no_perf
-```
+    - Step 5a: For virtual machine collection
+      ```
+      python3 stratozone-aws-export.py
+      ```
+
+      __NOTE:__ To skip performance data collection add `--no_perf` switch 
+      ```
+      python3 stratozone-aws-export.py --no_perf
+      ```
+    - Step 5b: For RDS and/or managed service collection
+      ```
+      python3 stratozone-aws-export.py -m ManagedService
+      ```
+      __NOTE:__ For database collection, rename db_secrets.sample.json to db_secrets.json and update the contents to include the list of regions and database connection info secret key names 
 
 - Step 6: Verify output file has been generated
 ```
- ls ./aws-import-files.zip
+ ls ./*.zip
 ```
 
 - Step 7: When the script completes, select download file from the Actions dropdown in upper right corner. \
@@ -68,9 +77,14 @@ python3 stratozone-aws-export.py --no_perf
 !["Image of Cloud Shell Actions, download file"](images/aws-actions.png)
 
 - Step 8: Enter the path to the output file.
-```
-~/aws-to-stratozone-export/aws-import-files.zip
-```
+    - Step 8a: For virtual machine collection
+      ```
+      ~/aws-to-stratozone-export/vm-aws-import-files.zip
+      ```
+    - Step 8b: For RDS and/or managed service collection
+      ```
+      ~/aws-to-stratozone-export/services-aws-import-files.zip
+      ```    
 
 - Step 9: Click Download. File is ready for import into StratoZone portal.
 
@@ -100,14 +114,19 @@ python3 stratozone-aws-export.py --resources=none
 
 ## Prerequisites
 
-  AWS Cloud Shell is the recommended environment to execute the collection script as it has all required components (Python3, AWS SDK) already installed.
+  For virtual machine collection, AWS Cloud Shell is the recommended environment to execute the collection script as it has all required components (Python3, AWS SDK) already installed.  Although, for RDS  collection, it might be easier to use an ec2 instance that has network connectivity to the databases.
 
   If the script will be executed from a workstation following components will need to be installed
   - Python 3.6 or later
   - AWS SDK version 1.20.20 or newer for Python (https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html)
+  - You can use `python3 -m pip install -r requirements.txt` to install the required components
+
+  For RDS collection, use AWS Secrets Manager to store database credentials (https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html) and create a file `db_secrets.json` to list the regions and secret names of the databases.
 
 ## AWS Permissions
 The script needs read-only access to the AWS organization where collection will be performed.
+
+For database collection, the user running the script should have read-only permissions to connect to the database and there should be network connectivity configured between the databases and the ec2 instance running the script.
 
 ## Support
 If the execution of the script fails please contact stratozone-support@google.com and attach log file located in ./output directory.
