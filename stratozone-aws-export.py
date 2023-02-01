@@ -508,13 +508,13 @@ while run_script:
                       format=log_format,
                       level=logging.ERROR)
   logging.debug('Starting collection at: %s', datetime.datetime.now())
+  ec2_client = boto3.client('ec2')
 
+  logging.info('Get all regions')
+  regions = ec2_client.describe_regions(AllRegions=True)
+  region_list = list(map(lambda x:x['RegionName'], regions['Regions']))
 
   if args.collection_mode == 'VirtualMachine':
-    ec2_client = boto3.client('ec2')
-
-    logging.info('Get all regions')
-    regions = ec2_client.describe_regions(AllRegions=True)
 
     logging.info('Get Organization ID')
 
