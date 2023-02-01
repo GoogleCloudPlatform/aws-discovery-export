@@ -672,7 +672,7 @@ def scan_aws(service_collection, region_list, thread_limit):
       )
       _clients = {}
 
-    with open('./output/resources.json', 'w+', encoding='utf-8') as f:
+    with open('./output/services/resources.json', 'w+', encoding='utf-8') as f:
       json.dump(_resource_list, f, ensure_ascii=False, indent=4)
     
     break
