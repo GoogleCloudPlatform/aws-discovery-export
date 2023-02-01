@@ -147,7 +147,7 @@ def get_image_size_details(instance_type, l_vm_instance):
   return l_vm_instance
 
 
-def report_writer(dictionary_data, field_name_list, file_name, directory):
+def report_writer(dictionary_data, field_name_list, file_name, directory = './output/vm/'):
   """write data contained in dictionary list into csv file.
 
   Args:
@@ -640,10 +640,10 @@ while run_script:
     else:
       created_files = 3
 
-    zip_files('./output/', 'aws-import-files.zip')
+    zip_files('./output/', 'vm-aws-import-files.zip')
     logging.debug('Collection completed at: %s', datetime.datetime.now())
     print('\nExport Completed. \n')
-    print('Aws-import-files.zip generated successfully containing {} files.'
+    print('vm-aws-import-files.zip generated successfully containing {} files.'
           .format(created_files))
 
     if args.no_perf:
