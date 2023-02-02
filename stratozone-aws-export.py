@@ -392,8 +392,7 @@ def get_performance_info(vm_id, region_name, block_device_list):
         vm_perf_info = stratozonedict.vm_perf.copy()
         vm_perf_info['MachineId'] = vm_id
         vm_perf_info['TimeStamp'] = (
-            response['MetricDataResults'][0]['Timestamps'][i].strftime(
-                '%Y/%m/%d, %H:%M:%S'))
+            response['MetricDataResults'][0]['Timestamps'][i].isoformat())
         vm_perf_info['CpuUtilizationPercentage'] = '{:.2f}'.format(
             response['MetricDataResults'][0]['Values'][i])
         vm_perf_info['NetworkBytesPerSecSent'] = '{:.4f}'.format(
@@ -581,7 +580,7 @@ while run_script:
           vm_create_timestamp = get_disk_info(instance['InstanceId'],
                                               instance['BlockDeviceMappings'],
                                               instance['RootDeviceName'])
-          vm_instance['CreateDate'] = vm_create_timestamp.strftime('%Y/%m/%d, %H:%M:%S')
+          vm_instance['CreateDate'] = vm_create_timestamp.isoformat()
           vm_instance['DiskIDs'] = disk_id_list
 
           vm_list.append(vm_instance)
