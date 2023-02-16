@@ -485,9 +485,9 @@ def get_formatted_datetime(dt):
 
   if (dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None):
     # If timezone info is not available, assume that its in UTC
-    return dt.strftime('%Y-%m-%d %H:%M:%SZ')
+    return dt.strftime('%Y-%m-%d %H:%M:%S+00:00')
   else:
-    dt_str = dt.strftime('%Y-%m-%d %H:%M:%S%z')
+    dt_str = dt.strftime('%Y-%m-%d %H:%M:%S%z').replace('Z', '+00:00')
     dt_str = "{0}:{1}".format(dt_str[:-2],dt_str[-2:])
     return dt_str
 
