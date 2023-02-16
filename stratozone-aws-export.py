@@ -391,8 +391,7 @@ def get_performance_info(vm_id, region_name, block_device_list):
       for i in range(0, first_arr_size):
         vm_perf_info = stratozonedict.vm_perf.copy()
         vm_perf_info['MachineId'] = vm_id
-        vm_perf_info['TimeStamp'] = (
-            response['MetricDataResults'][0]['Timestamps'][i].isoformat())
+        vm_perf_info['TimeStamp'] = get_formatted_datetime(response['MetricDataResults'][0]['Timestamps'][i])
         vm_perf_info['CpuUtilizationPercentage'] = '{:.2f}'.format(
             response['MetricDataResults'][0]['Values'][i])
         vm_perf_info['NetworkBytesPerSecSent'] = '{:.4f}'.format(
@@ -477,6 +476,20 @@ def zip_files(dir_name, zip_file_name):
           file_path = os.path.join(folder_name, file_name)
           zip_obj.write(file_path, os.path.basename(file_path))
 
+def get_formatted_datetime(dt):
+  """Converts datetime to a standard format
+
+  Args:
+    dt: datetime value
+  """
+
+  if (dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None):
+    # If timezone info is not available, assume that its in UTC
+    return dt.strftime('%Y-%m-%d %H:%M:%S+00:00')
+  else:
+    dt_str = dt.strftime('%Y-%m-%d %H:%M:%S%z').replace('Z', '+00:00')
+    dt_str = "{0}:{1}".format(dt_str[:-2],dt_str[-2:])
+    return dt_str
 
 ###########################################################################
 # Collect information about deployed instances
@@ -580,7 +593,9 @@ while run_script:
           vm_create_timestamp = get_disk_info(instance['InstanceId'],
                                               instance['BlockDeviceMappings'],
                                               instance['RootDeviceName'])
-          vm_instance['CreateDate'] = vm_create_timestamp.isoformat()
+          
+          
+          vm_instance['CreateDate'] = get_formatted_datetime(vm_create_timestamp)
           vm_instance['DiskIDs'] = disk_id_list
 
           vm_list.append(vm_instance)
