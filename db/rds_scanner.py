@@ -71,7 +71,6 @@ class RdsScanner:
       if secret['engine'] == 'mysql':
         output['dbType'] = 4
         scanner = MysqlScanner(secret_region)
-        output['dbType'] = 1
       elif secret['engine'] == 'postgres':
         scanner = PostgreSQLScanner(secret_region)
 
