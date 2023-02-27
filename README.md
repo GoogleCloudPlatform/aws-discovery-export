@@ -51,8 +51,8 @@ cd aws-to-stratozone-export/
 ```
 
 - Step 5: Run script to start collection
-
-    - Step 5a: For virtual machine collection
+    - Step 5a: Use `python3 -m pip install -r requirements.txt` to install the required components
+    - Step 5b: For virtual machine collection
       ```
       python3 stratozone-aws-export.py
       ```
@@ -61,7 +61,7 @@ cd aws-to-stratozone-export/
       ```
       python3 stratozone-aws-export.py --no_perf
       ```
-    - Step 5b: For RDS and/or managed service collection
+    - Step 5c: For RDS and/or managed service collection
       ```
       python3 stratozone-aws-export.py -m ManagedService
       ```
