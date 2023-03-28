@@ -25,6 +25,7 @@ from db.db_info import DBInstanceHelper
 from db.mysql_scanner import MysqlScanner
 from db.postgresql_scanner import PostgreSQLScanner
 from db.secrets_manager import SecretsManager
+from db.sqlserver_scanner import SqlServerScanner
 
 
 class RdsScanner:
@@ -51,7 +52,7 @@ class RdsScanner:
       rds_info.engine = secret['engine']
       rds_info.host = secret['host']
       rds_info.port = secret['port']
-      rds_info.dbname = secret['dbname']
+      rds_info.dbname = secret['dbname'] if secret['engine'] != 'sqlserver' else 'master'
 
       session = boto3.session.Session()
       client = session.client(service_name='rds', region_name=secret_region)
@@ -62,7 +63,6 @@ class RdsScanner:
 
       output = {
           'instanceDetails': instance_details,
-          'dbType': 1,
           'hostName': rds_info.host,
           'databaseName': rds_info.dbname,
           'port': rds_info.port
@@ -72,7 +72,11 @@ class RdsScanner:
         output['dbType'] = 4
         scanner = MysqlScanner(secret_region)
       elif secret['engine'] == 'postgres':
+        output['dbType'] = 1
         scanner = PostgreSQLScanner(secret_region)
+      elif secret['engine'] == 'sqlserver':
+        output['dbType'] = 2
+        scanner = SqlServerScanner(secret_region)
 
       if not scanner.scan(rds_info, output):
         return False
