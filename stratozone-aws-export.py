@@ -31,7 +31,6 @@ import concurrent.futures.thread
 
 import boto3
 from pkg_resources import parse_version as version
-from db.rds_scanner import RdsScanner
 import stratozonedict
 import aws_resource_scan 
 
@@ -685,10 +684,10 @@ while run_script:
     if os.path.isfile('db_secrets.json'):
       with open('db_secrets.json', 'r') as f:
         data = json.load(f)
-
+      globals()['scanner'] = __import__('db.rds_scanner')
       for region in data:
         for secret in region['secrets']:
-          scanner = RdsScanner()
+          scanner = globals()['scanner'].rds_scanner.RdsScanner()
           if scanner.scan(secret, region['region']):
             created_files += 1
     else:
