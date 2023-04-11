@@ -26,7 +26,7 @@ class SqlServerScanner:
     self.region = region
 
   def scan(self, rds_info, output):
-    """Connects to MySQL database and collects data.
+    """Connects to SQL Server database and collects data.
 
     Args:
       rds_info: Dictionary object with database connection information
