@@ -28,8 +28,8 @@ Default thread setting is very conservative to allow for cloud shell execution. 
 - [Solution Overview](#solution-overview)
 - [StratoZone AWS export usage](#stratozone-aws-export-usage)
 - [Prerequisites](#prerequisites)
-- [AWS Permissions](#AWS-Permissions)
-- [Support](#Support)
+- [AWS Permissions](#aws-permissions)
+- [Support](#support)
 
 ## Stratozone AWS export usage
 
@@ -49,10 +49,11 @@ git clone https://github.com/GoogleCloudPlatform/aws-to-stratozone-export.git
 ```
 cd aws-to-stratozone-export/
 ```
-
-- Step 5: Run script to start collection
-    - Step 5a: Use `python3 -m pip install -r requirements.txt` to install the required components
-    - Step 5b: For virtual machine collection
+- Step 5: Install required components
+    - Step 5a: For RDS collection, use `python3 -m pip install -r requirements2.txt` to install the required components
+    - Step 5b: Otherwise, use `python3 -m pip install -r requirements.txt` to install the required components
+- Step 6: Run script to start collection
+    - Step 6a: For virtual machine collection
       ```
       python3 stratozone-aws-export.py
       ```
@@ -61,7 +62,7 @@ cd aws-to-stratozone-export/
       ```
       python3 stratozone-aws-export.py --no_perf
       ```
-    - Step 5c: For RDS and/or managed service collection
+    - Step 6b: For RDS and/or managed service collection
       ```
       python3 stratozone-aws-export.py -m ManagedService
       ```
@@ -100,7 +101,6 @@ python3 stratozone-aws-export.py --thread_limit 40
 * --no_public_ip (-p) - Default False. Use to indicate whether public IP address will be collected.
 ```
 python3 stratozone-aws-export.py --no_public_ip
-```
 ```
 * --resources (-p) - Default basic. Use to indicate resource collection type. Valid options (none, basic, all).
 Basic option collects resources from following services: ec2, s3, route53, apigatewayv2, appconfig, appstream, 
