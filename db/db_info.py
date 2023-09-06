@@ -41,26 +41,24 @@ class Query:
 class DBInstanceHelper:
   """Class to get database image size details."""
 
-  def get_image_size_details(self, rds_client, secret, region):
+  def get_image_size_details(self, rds_client, db_instance_identifier, region):
     """Get image size details.
 
     Args:
         rds_client: RDS boto3 client
-        secret: secret value to RDS database
+        db_instance_identifier: Database instance identifier
         region: resource region
 
     Returns:
         Dictionary object with instance details.
     """
-    instance_type = rds_client.describe_db_instances(
-        DBInstanceIdentifier=secret['dbInstanceIdentifier']
-    )['DBInstances'][0]['DBInstanceClass']
-    allocated_storage = rds_client.describe_db_instances(
-        DBInstanceIdentifier=secret['dbInstanceIdentifier']
-    )['DBInstances'][0]['AllocatedStorage']
-    storage_type = rds_client.describe_db_instances(
-        DBInstanceIdentifier=secret['dbInstanceIdentifier']
-    )['DBInstances'][0]['StorageType']
+    db_instance = rds_client.describe_db_instances(
+        DBInstanceIdentifier=db_instance_identifier
+    )['DBInstances'][0]
+
+    instance_type = db_instance['DBInstanceClass']
+    allocated_storage = db_instance['AllocatedStorage']
+    storage_type = db_instance['StorageType']
 
     if instance_type.startswith('db.'):
       instance_type = instance_type[3:]

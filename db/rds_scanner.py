@@ -31,7 +31,7 @@ from db.sqlserver_scanner import SqlServerScanner
 class RdsScanner:
   """Helper class to scan rds databases."""
 
-  def scan(self, secret_name, secret_region):
+  def scan(self, secret_config, secret_region):
     """Connects to RDS database and collects data.
 
     Args:
@@ -44,22 +44,23 @@ class RdsScanner:
     """
     try:
       secrets_manager = SecretsManager(secret_region)
-      secret = json.loads(secrets_manager.get_secret(secret_name))
+      secret = json.loads(secrets_manager.get_secret(secret_config['name']))
 
       rds_info = DBConnection()
-      rds_info.username = secret['username']
+      rds_info.username = secret_config['username'] or secret['username']
       rds_info.password = secret['password']
-      rds_info.engine = secret['engine']
-      rds_info.host = secret['host']
-      rds_info.port = secret['port']
-      rds_info.dbname = secret['dbname'] if secret['engine'] != 'sqlserver' else 'master'
+      rds_info.engine = secret_config['engine'] or secret['engine']
+      rds_info.host = secret_config['host'] or secret['host']
+      rds_info.port = secret_config['port'] or secret['port']
+      rds_info.dbname = (secret_config['dbname'] or secret['dbname']) if secret['engine'] != 'sqlserver' else 'master'
 
       session = boto3.session.Session()
       client = session.client(service_name='rds', region_name=secret_region)
 
       db_instance_helper = DBInstanceHelper()
+      db_instance_identifier = secret_config['dbInstanceIdentifier'] or secret['dbInstanceIdentifier']
       instance_details = db_instance_helper.get_image_size_details(
-          client, secret, secret_region)
+          client, db_instance_identifier, secret_region)
 
       output = {
           'instanceDetails': instance_details,

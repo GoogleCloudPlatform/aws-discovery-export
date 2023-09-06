@@ -685,9 +685,9 @@ while run_script:
       with open('db_secrets.json', 'r') as f:
         data = json.load(f)
       globals()['scanner'] = __import__('db.rds_scanner')
+      scanner = globals()['scanner'].rds_scanner.RdsScanner()
       for region in data:
         for secret in region['secrets']:
-          scanner = globals()['scanner'].rds_scanner.RdsScanner()
           if scanner.scan(secret, region['region']):
             created_files += 1
     else:
