@@ -108,15 +108,8 @@ class PostgreSQLScanner:
         Query("PostgreSQL_Version", """
             select version()
             """),
-        Query("PostgreSQL_DBFlags", """
-            select * from pg_settings
-            """),
         Query("PostgreSQL_Extensions", """
             select * from pg_extension
-            """),
-        Query(
-            "PostgreSQL_ConnectedApplications", """
-            select application_name, count(*) from pg_stat_activity group by 1
             """),
         Query(
             "PostgreSQL_ForeignTables", """
@@ -135,54 +128,619 @@ class PostgreSQLScanner:
             select round(pg_relation_size(relid)/( 1024.0 * 1024 * 1024 ), 2) as size, relname from pg_stat_user_tables where relid not in (select indrelid from pg_index where indisprimary)
             """),
         Query(
-            "PostgreSQL_DiskUsage", """
-            select round(pg_database_size(datname)/( 1024.0 * 1024 * 1024 ), 2) as size, * from pg_stat_database;
-            """),
-        Query(
-            "PostgreSQL_UserRoles", """
-            select r.oid::text as roleName, r.rolsuper, r.rolinherit,
-            r.rolcreaterole, r.rolcreatedb, r.rolcanlogin,
-            r.rolconnlimit, r.rolvaliduntil,
-            ARRAY(SELECT b.rolname
-                    FROM pg_catalog.pg_auth_members m
-                    JOIN pg_catalog.pg_roles b ON (m.roleid = b.oid)
-                    WHERE m.member = r.oid)::varchar(5000) as memberof
-            , pg_catalog.shobj_description(r.oid, 'pg_authid') AS description
-            , r.rolreplication
-            , r.rolbypassrls
-            FROM pg_catalog.pg_roles r
-            WHERE r.rolname !~ '^pg_'
-            ORDER BY 1
-            """),
-        Query(
             "PostgreSQL_UserTableStats", """
             select pg_total_relation_size(relid) as total_size, pg_relation_size(relid) as size, * from pg_stat_user_tables
             """),
         Query(
-            "PostgreSQL_UserTableIOStats", """
-            select * FROM pg_statio_user_tables
+            "PostgreSQL_AWSExtensionSchemaCheck", """
+            select
+                exists (
+                    select
+                    FROM
+                    information_schema.tables
+                    WHERE
+                    table_schema = 'aws_oracle_ext'
+                    and table_name = 'versions'
+                ) as SCTOracleExtensionExists
             """),
         Query(
-            "PostgreSQL_UserTableIndexStats", """
-            select pg_relation_size(s.indexrelid) as index_size, s.*, i.indisunique, i.indisprimary from pg_stat_user_indexes as s join pg_index as i using(indexrelid)
+            "PostgreSQL_AWSExtensionVersion", """
+            SELECT componentversion as AWSExtensionVersion FROM aws_oracle_ext.versions as extVersion
             """),
         Query(
-            "PostgreSQL_IndexIOStats", """
-            select * FROM pg_statio_user_indexes
-            """),
-        Query(
-            "PostgreSQL_ReplicationSlots", """
-            select * FROM pg_replication_slots
-            """),
-        Query(
-            "PostgreSQL_ReplicationStats", """
-            select * FROM pg_stat_replication
-            """),
-        Query("PostgreSQL_BgWriterStats", """
-            select * from pg_stat_bgwriter
-            """),
-        Query(
-            "PostgreSQL_FunctionsDefined", """
-            select proowner::varchar(255), l.lanname, count(*) from pg_proc pr join pg_language l on l.oid = pr.prolang group by 1,2
+            "PostgreSQL_AWSExtensionUsageDetails", """
+            (with alias1 as (
+  select 
+    alias1.proname, 
+    ns.nspname, 
+    case when relkind = 'r' then 'TABLE' END AS objType, 
+    depend.relname, 
+    pg_get_expr(
+      pg_attrdef.adbin, pg_attrdef.adrelid
+    ) as def 
+  from 
+    pg_depend 
+    inner join (
+      select 
+        distinct pg_proc.oid as procoid, 
+        nspname || '.' || proname as proname, 
+        pg_namespace.oid 
+      from 
+        pg_namespace, 
+        pg_proc 
+      where 
+        nspname = 'aws_oracle_ext' 
+        and pg_proc.pronamespace = pg_namespace.oid
+    ) alias1 on pg_depend.refobjid = alias1.procoid 
+    inner join pg_attrdef on pg_attrdef.oid = pg_depend.objid 
+    inner join pg_class depend on depend.oid = pg_attrdef.adrelid 
+    inner join pg_namespace ns on ns.oid = depend.relnamespace
+), 
+alias2 as (
+  select 
+    alias1.nspname as schema, 
+    alias1.relname as table_name, 
+    alias2.* 
+  from 
+    alias1 cross 
+    join lateral (
+      select 
+        i as funcname, 
+        cntgroup as cnt 
+      from 
+        (
+          select 
+            (
+              regexp_matches(
+                alias1.def, 'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*', 
+                'ig'
+              )
+            ) [1] i, 
+            count(1) cntgroup
+          group by
+            (
+              regexp_matches(
+                alias1.def, 'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1]
+        ) t
+    ) as alias2
+  where
+    def ~*'aws_oracle_ext.*'
+) 
+select
+  alias2.schema as schemaName, 
+  'N/A' as language,
+  'TableDefaultConstraints' as type,
+  alias2.table_name as typeName, 
+  alias2.funcname as AWSExtensionDependency, 
+  sum(cnt) as SCTFunctionReferenceCount
+from
+  alias2
+group by
+  alias2.schema, 
+  alias2.table_name, 
+  alias2.funcname
+)
+UNION
+(with alias1 as (
+  select
+    pgc.conname as constraint_name,
+    ccu.table_schema as table_schema,
+    ccu.table_name,
+    ccu.column_name,
+    pg_get_constraintdef(pgc.oid) as def
+  from
+    pg_constraint pgc
+    join pg_namespace nsp on nsp.oid = pgc.connamespace
+    join pg_class cls on pgc.conrelid = cls.oid
+    left
+  join information_schema.constraint_column_usage ccu on pgc.conname = ccu.constraint_name
+
+and nsp.nspname = ccu.constraint_schema
+  where
+    contype = 'c'
+  order by
+    pgc.conname
+),
+alias2 as (
+  select
+    alias1.table_schema,
+    alias1.constraint_name,
+    alias1.table_name,
+    alias1.column_name,
+    alias2.*
+  from
+    alias1
+    cross join lateral (
+      select
+        i as funcname,
+        cntgroup as cnt
+      from
+        (
+          select
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1] i,
+            count(1) cntgroup
+          group by
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1]
+        ) t
+    ) as alias2
+  where
+    def ~*'aws_oracle_ext.*'
+)
+select
+  alias2.table_schema as schemaName, 
+  'N/A' as language,
+  'TableCheckConstraints' as type,
+  alias2.table_name as typeName, 
+  alias2.funcname as AWSExtensionDependency, 
+  sum(cnt) as SCTFunctionReferenceCount
+from
+  alias2
+group by
+  alias2.table_schema,
+  alias2.table_name,
+  alias2.funcname
+)
+UNION
+(with alias1 as (
+  select
+    alias1.proname,
+    nspname,
+    case when relkind = 'i' then 'INDEX' END AS objType,
+    depend.relname,
+    pg_get_indexdef(depend.oid) def
+  from
+    pg_depend
+    inner join (
+      select
+        distinct pg_proc.oid as procoid,
+        nspname || '.' || proname as proname,
+        pg_namespace.oid
+      from
+        pg_namespace,
+        pg_proc
+      where
+        nspname = 'aws_oracle_ext'
+        and pg_proc.pronamespace = pg_namespace.oid
+    ) alias1 on pg_depend.refobjid = alias1.procoid
+    inner join pg_class depend on depend.oid = pg_depend.objid
+    inner join pg_namespace ns on ns.oid = depend.relnamespace
+  where
+    relkind = 'i'
+),
+alias2 as (
+  select
+    alias1.nspname as Schema,
+    alias1.relname as IndexName,
+    alias2.*
+  from
+    alias1
+    cross join lateral (
+      select
+        i as funcname,
+        cntgroup as cnt
+      from
+        (
+          select
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1] i,
+            count(1) cntgroup
+          group by
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1]
+        ) t
+    ) as alias2
+  where
+    def ~*'aws_oracle_ext.*'
+)
+select
+  alias2.Schema as schemaName, 
+  'N/A' as language,
+  'TableIndexesAsFunctions' as type,
+  alias2.IndexName as typeName, 
+  alias2.funcname as AWSExtensionDependency, 
+  sum(cnt) as SCTFunctionReferenceCount
+from
+  alias2
+group by
+  alias2.Schema,
+  alias2.IndexName,
+  alias2.funcname
+)
+UNION
+(with alias1 as (
+  select
+    alias1.proname,
+    nspname,
+    case when depend.relkind = 'v' then 'VIEW' END AS objType,
+    depend.relname,
+    pg_get_viewdef(depend.oid) def
+  from
+    pg_depend
+    inner join (
+      select
+        distinct pg_proc.oid as procoid,
+        nspname || '.' || proname as proname,
+        pg_namespace.oid
+      from
+        pg_namespace,
+        pg_proc
+      where
+        nspname = 'aws_oracle_ext'
+        and pg_proc.pronamespace = pg_namespace.oid
+    ) alias1 on pg_depend.refobjid = alias1.procoid
+    inner join pg_rewrite on pg_rewrite.oid = pg_depend.objid
+    inner join pg_class depend on depend.oid = pg_rewrite.ev_class
+    inner join pg_namespace ns on ns.oid = depend.relnamespace
+  where
+    not exists(
+      select
+        1
+      from
+        pg_namespace
+      where
+        pg_namespace.oid = depend.relnamespace
+        and nspname = 'aws_oracle_ext'
+    )
+),
+alias2 as (
+  select
+    alias1.nspname as Schema,
+    alias1.relname as ViewName,
+    alias2.*
+  from
+    alias1
+    cross join lateral (
+      select
+        i as funcname,
+        cntgroup as cnt
+      from
+        (
+          select
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1] i,
+            count(1) cntgroup
+          group by
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1]
+        ) t
+    ) as alias2
+  where
+    def ~*'aws_oracle_ext.*'
+)
+select
+  alias2.Schema as schemaName, 
+  'N/A' as language,
+  'Views' as type,
+  alias2.ViewName as typeName,
+  alias2.funcname as AWSExtensionDependency, 
+  sum(cnt) as SCTFunctionReferenceCount
+from
+  alias2
+group by
+  alias2.Schema,
+  alias2.ViewName,
+  alias2.funcname
+)
+UNION
+(with alias1 as (
+  select
+    distinct n.nspname as function_schema,
+    p.proname as function_name,
+    l.lanname as function_language,
+    (
+      select
+        'Y'
+      from
+        pg_trigger
+      where
+        tgfoid = (n.nspname || '.' || p.proname) :: regproc
+    ) as Trigger_Func,
+    lower(pg_get_functiondef(p.oid) :: text) as def
+  from
+    pg_proc p
+    left
+  join pg_namespace n on p.pronamespace = n.oid
+
+left
+  join pg_language l on p.prolang = l.oid
+
+left
+  join pg_type t on t.oid = p.prorettype
+  where
+    n.nspname not in (
+      'pg_catalog',
+      'information_schema',
+      'aws_oracle_ext'
+    )
+    and p.prokind not in ('a', 'w')
+    and l.lanname in ('sql', 'plpgsql')
+  order by
+    function_schema,
+    function_name
+),
+alias2 as (
+  select
+    alias1.function_schema,
+    alias1.function_name,
+    alias1.function_language,
+    alias1.Trigger_Func,
+    alias2.*
+  from
+    alias1
+    cross join lateral (
+      select
+        i as funcname,
+        cntgroup as cnt
+      from
+        (
+          select
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1] i,
+            count(1) cntgroup
+          group by
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1]
+        ) t
+    ) as alias2
+  where
+    def ~*'aws_oracle_ext.*'
+    and Trigger_Func = 'Y'
+)
+select
+  function_schema as schemaName,
+  function_language as language,
+  'Triggers' as type,
+  function_name as typeName, 
+  funcname as AWSExtensionDependency, 
+  sum(cnt) as SCTFunctionReferenceCount
+from
+  alias2
+where
+  1 = 1
+group by
+  function_schema,
+  function_language,
+  function_name,
+  funcname
+order by
+  3,
+  4 desc
+)
+UNION
+(with alias1 as (
+  select
+    distinct n.nspname as function_schema,
+    p.proname as function_name,
+    l.lanname as function_language,
+    (
+      select
+        'Y'
+      from
+        pg_trigger
+      where
+        tgfoid = (n.nspname || '.' || p.proname) :: regproc
+    ) as Trigger_Func,
+    lower(pg_get_functiondef(p.oid) :: text) as def
+  from
+    pg_proc p
+    left
+  join pg_namespace n on p.pronamespace = n.oid
+
+left
+  join pg_language l on p.prolang = l.oid
+
+left
+  join pg_type t on t.oid = p.prorettype
+  where
+    n.nspname not in (
+      'pg_catalog',
+      'information_schema',
+      'aws_oracle_ext'
+    )
+    and p.prokind not in ('a', 'w', 'p')
+    and l.lanname in ('sql', 'plpgsql')
+  order by
+    function_schema,
+    function_name
+),
+alias2 as (
+  select
+    alias1.function_schema,
+    alias1.function_name,
+    alias1.function_language,
+    alias1.Trigger_Func,
+    alias2.*
+  from
+    alias1
+    cross join lateral (
+      select
+        i as funcname,
+        cntgroup as cnt
+      from
+        (
+          select
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1] i,
+            count(1) cntgroup
+          group by
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1]
+        ) t
+    ) as alias2
+  where
+    def ~*'aws_oracle_ext.*'
+    and alias1.Trigger_Func is NULL
+)
+select
+  function_schema as schemaName,
+  function_language as language,
+  'Functions' as type,
+  function_name as typeName, 
+  funcname as AWSExtensionDependency, 
+  sum(cnt) as SCTFunctionReferenceCount
+from
+  alias2
+where
+  1 = 1
+group by
+  function_schema,
+  function_language,
+  function_name,
+  funcname
+order by
+  3,
+  4 desc
+)
+
+UNION
+
+(with alias1 as (
+  select
+    distinct n.nspname as function_schema,
+    p.proname as function_name,
+    l.lanname as function_language,
+    (
+      select
+        'Y'
+      from
+        pg_trigger
+      where
+        tgfoid = (n.nspname || '.' || p.proname) :: regproc
+    ) as Trigger_Func,
+    lower(pg_get_functiondef(p.oid) :: text) as def
+  from
+    pg_proc p
+    left
+  join pg_namespace n on p.pronamespace = n.oid
+
+left
+  join pg_language l on p.prolang = l.oid
+
+left
+  join pg_type t on t.oid = p.prorettype
+  where
+    n.nspname not in (
+      'pg_catalog',
+      'information_schema',
+      'aws_oracle_ext'
+    )
+    and p.prokind not in ('a', 'w', 'f')
+    and l.lanname in ('sql', 'plpgsql')
+  order by
+    function_schema,
+    function_name
+),
+alias2 as (
+  select
+    alias1.function_schema,
+    alias1.function_name,
+    alias1.function_language,
+    alias1.Trigger_Func,
+    alias2.*
+  from
+    alias1
+    cross join lateral (
+      select
+        i as funcname,
+        cntgroup as cnt
+      from
+        (
+          select
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1] i,
+            count(1) cntgroup
+          group by
+            (
+              regexp_matches(
+                alias1.def,
+                'aws_oracle_ext[.][a-z]*[_,a-z,$,""]*',
+                'ig'
+              )
+            )[1]
+        ) t
+    ) as alias2
+  where
+    def ~*'aws_oracle_ext.*'
+)
+select
+  function_schema as schemaName,
+  function_language as language,
+  'Procedures' as type,
+  function_name as typeName, 
+  funcname as AWSExtensionDependency, 
+  sum(cnt) as SCTFunctionReferenceCount
+from
+  alias2
+where
+  1 = 1
+group by
+  function_schema,
+  function_language,
+  function_name,
+  funcname
+order by
+  3,
+  4 desc
+)
             """),
     ]
