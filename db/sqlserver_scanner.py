@@ -15,7 +15,6 @@
 version 1.5.1
 """
 
-import pyodbc 
 import logging
 from db.db_info import Query
 
@@ -40,9 +39,10 @@ class SqlServerScanner:
     collection = {}
 
     try:
+      pyodbc = __import__('pyodbc')
       conn = pyodbc.connect(
         'Driver={SQL Server};' + 
-        'SERVER=' + rds_info.host +
+        'SERVER=' + rds_info.host + ',' + str(rds_info.port) +
         ';DATABASE=master' +
         ';UID=' + rds_info.username +
         ';PWD=' + rds_info.password)
@@ -93,7 +93,7 @@ class SqlServerScanner:
       Query("SQLServer_DBs", "select name from sys.databases"),
       Query("SQLServer_SSISPackage", "select count(*) as ssisPackageCount from msdb.[dbo].[sysssispackages] where ownersid <>0x01"),
       Query("SQLServer_WindowsSQLLogin", "select count(*) as windowsSQLLoginCount from master..syslogins where isntname = 1 and hasaccess = 1 and loginname not like 'NT %'"),
-      Query("SQLServer_StorageInGB", "select s.[name], sum (convert(Decimal(18,2), (size*8/1024)))/1024 as GB_Storage_Used from sys.master_files m join sys.databases s ON m.database_id = s.database_id group by m.database_id, s.[name]"),
+      Query("SQLServer_StorageInGB", "select s.[name], sum ((convert(Decimal(18,2),size)*8/1024))/1024 as GB_Storage_Used from sys.master_files m join sys.databases s ON m.database_id = s.database_id group by m.database_id, s.[name]"),
       Query("SQLServer_AlwaysOn", "select CAST(coalesce(serverproperty('IsHadrEnabled') ,0) AS NVARCHAR(50)) IsHadrEnabled"),
       Query("SQLServer_FailoverCluster", "select CAST(serverproperty('IsClustered') AS NVARCHAR(50)) [IsClustered]"),
       Query("SQLServer_LogShipping", "exec master.sys.sp_help_log_shipping_monitor"),

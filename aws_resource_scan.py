@@ -17,6 +17,7 @@ import collections
 import contextlib
 import functools
 import json
+import logging
 from multiprocessing.pool import ThreadPool
 import random
 import sys
@@ -186,7 +187,7 @@ class RawListing(object):
           _resource_list.append(found_resource)
 
     except Exception as exc:
-      print('Exception: ' + str(exc))
+      logging.error(exc)
 
   @classmethod
   def from_json(cls, data):
@@ -549,7 +550,7 @@ def acquire_listing(verbose, what):
     result_type = (result_no_access if 'AccessDeniedException'
                    in str(exc) else result_error)
     if (service == 'ec2' and operation == 'DescribeInstances'):
-      print(exc)
+      logging.error(exc)
 
     ignored_err = reference_aws.RESULT_IGNORE_ERRORS.get(
         service, {}).get(operation)

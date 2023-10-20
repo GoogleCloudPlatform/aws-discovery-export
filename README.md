@@ -121,7 +121,7 @@ python3 stratozone-aws-export.py --resources=none
   - AWS SDK version 1.20.20 or newer for Python (https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html)
   - You can use `python3 -m pip install -r requirements.txt` to install the required components
 
-  For RDS collection, use AWS Secrets Manager to store database credentials (https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html) and create a file `db_secrets.json` to list the regions and secret names of the databases.
+  For RDS collection, use AWS Secrets Manager to store database credentials (https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html) and create a file `db_secrets.json` to list the regions and secret names of the databases using [`db_secrets.schema.json`](db_secrets.schema.json).
 
 ## AWS Permissions
 The script needs read-only access to the AWS organization where collection will be performed.

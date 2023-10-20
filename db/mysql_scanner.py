@@ -133,21 +133,6 @@ select @@datadir
         Query("MySQL_Plugins", """
 SHOW PLUGINS
 """),
-        Query("MySQL_Engines", """
-SHOW ENGINES
-"""),
-        Query(
-            "MySQL_ConnectedApplications", """
-select id, host, db, command, time, state FROM information_schema.processlist
-"""),
-        Query(
-            "MySQL_DBSize", """
-select /*+ MAX_EXECUTION_TIME(5000) */ COUNT(*) as 'TABLE_COUNT',
-ROUND(sum(data_length) / ( 1024 * 1024 * 1024 ), 2) DATA,
-ROUND(sum(index_length) / ( 1024 * 1024 * 1024 ), 2) INDEXES
-FROM information_schema.tables
-WHERE table_schema NOT IN ('mysql','performance_schema','information_schema','sys')
-"""),
         Query(
             "MySQL_SizeByStorageEngine", """
 select /*+ MAX_EXECUTION_TIME(5000) */ ENGINE AS Storage_Engine, COUNT(*) Tables_Count,
@@ -157,51 +142,6 @@ FROM information_schema.TABLES
 WHERE ENGINE IS NOT NULL
 AND table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
 GROUP BY ENGINE
-"""),
-        Query(
-            "MySQL_SizeByDatabase", """
-select /*+ MAX_EXECUTION_TIME(5000) */ table_schema,
-ROUND(SUM(data_length)/1024/1024/1024,2) as Data_Size_GB,
-ROUND(SUM(index_length)/1024/1024/1024,2) as Index_Size_GB
-FROM information_schema.tables
-WHERE table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-AND TABLE_TYPE <> 'VIEW'
-GROUP BY 1 ORDER BY 2 DESC
-"""),
-        Query(
-            "MySQL_Top10LargestTables", """
-select /*+ MAX_EXECUTION_TIME(5000) */ CONCAT(table_schema, '.', table_name) Schema_Table,
-ROUND(table_rows / 1000000, 2) Rows_Count,
-ROUND(data_length / ( 1024 * 1024 * 1024 ), 2) Data_Size,
-ROUND(index_length / ( 1024 * 1024 * 1024 ), 2) Index_Size
-FROM  information_schema.TABLES
-WHERE table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') AND TABLE_TYPE <> 'VIEW'
-ORDER BY data_length + index_length DESC LIMIT 10
-"""),
-        Query(
-            "MySQL_TablesWithPartitions", """
-select /*+ MAX_EXECUTION_TIME(5000) */ COUNT(*) AS PARTS_COUNT, TABLE_SCHEMA, TABLE_NAME, PARTITION_EXPRESSION
-FROM information_schema.PARTITIONS
-WHERE table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-GROUP BY TABLE_SCHEMA, TABLE_NAME, PARTITION_EXPRESSION HAVING COUNT(*) > 1
-"""),
-        Query(
-            "MySQL_FullTextIndexes", """
-select /*+ MAX_EXECUTION_TIME(5000) */ S.table_schema, S.table_name, S.column_name, T.ENGINE AS storage_engine
-FROM information_schema.STATISTICS S
-JOIN information_schema.TABLES T ON S.TABLE_SCHEMA=T.TABLE_SCHEMA AND S.TABLE_NAME = T.TABLE_NAME
-WHERE index_type = 'FULLTEXT'
-AND S.table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-"""),
-        Query(
-            "MySQL_CompressedTables", """
-select /*+ MAX_EXECUTION_TIME(5000) */ CONCAT(table_schema, '.', table_name) Schema_Table,
-ROUND(table_rows / 1000000, 2) Rows_Count,
-ROUND(data_length / ( 1024 * 1024 * 1024 ), 2) Data_Size,
-ROUND(index_length / ( 1024 * 1024 * 1024 ), 2) Index_Size
-FROM  information_schema.TABLES
-WHERE table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') AND ROW_FORMAT='COMPRESSED'
-ORDER BY data_length + index_length DESC
 """),
         Query(
             "MySQL_TablesWithNoPK", """
@@ -216,90 +156,6 @@ HAVING SUM(CASE WHEN non_unique = 0 AND nullable != 'YES' THEN 1 ELSE 0 END) = C
 WHERE puks.table_name IS NULL
 AND tables.table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
 AND tables.table_type = 'BASE TABLE'
-"""),
-        Query(
-            "MySQL_UsersWithAdminAccess", """
-select count(*) as userCount, host FROM mysql.user WHERE (Shutdown_Priv = 'Y' OR Super_Priv = 'Y' OR Reload_Priv = 'Y') group by host
-"""),
-        Query(
-            "MySQL_UsersWithAccessFromAnyHost", """
-select count(*) as userCount, host FROM mysql.user WHERE host = '%' OR host = '' group by host
-"""),
-        Query(
-            "MySQL_UsersWithEmptyPasswords5_6", """
-select count(*) as userCount, host FROM mysql.user WHERE  password = '' group by host
-"""),
-        Query(
-            "MySQL_UsersWithEmptyPasswords5_7", """
-select count(*) as userCount, host FROM mysql.user WHERE  authentication_string = '' group by host
-"""),
-        Query(
-            "MySQL_ConnectionsByDatabase", """
-select db, count(*) as 'count' from information_schema.processlist  group by db order by 2 desc
-"""),
-        Query(
-            "MySQL_ConnectionsByUsers", """
-select substring_index(host,':',1) as 'host',count(*) as 'count' from information_schema.processlist group by substring_index(host,':',1)
-"""),
-        Query(
-            "MySQL_StoredProcs", """
-select /*+ MAX_EXECUTION_TIME(5000) */ ROUTINE_SCHEMA, ROUTINE_NAME
-FROM information_schema.ROUTINES
-WHERE ROUTINE_TYPE = 'PROCEDURE' and routine_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-order by ROUTINE_SCHEMA
-"""),
-        Query(
-            "MySQL_Functions", """
-SELECT /*+ MAX_EXECUTION_TIME(5000) */ ROUTINE_SCHEMA, ROUTINE_NAME
-FROM information_schema.ROUTINES
-WHERE ROUTINE_TYPE = 'FUNCTION' and routine_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-order by ROUTINE_SCHEMA
-"""),
-        Query(
-            "MySQL_Triggers", """
-SELECT /*+ MAX_EXECUTION_TIME(5000) */ TRIGGER_SCHEMA,TRIGGER_NAME
-FROM information_schema.TRIGGERS
-WHERE trigger_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-ORDER BY TRIGGER_SCHEMA
-"""),
-        Query(
-            "MySQL_Events", """
-select /*+ MAX_EXECUTION_TIME(5000) */ event_schema,event_name
-from information_schema.events
-WHERE event_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-ORDER BY event_schema
-"""),
-        Query(
-            "MySQL_DefinerClauses", """
-SELECT /*+ MAX_EXECUTION_TIME(5000) */ DEFINER
-FROM information_schema.views
-WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-UNION
-SELECT DEFINER
-FROM information_schema.ROUTINES
-WHERE ROUTINE_TYPE = 'PROCEDURE' and routine_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-UNION
-SELECT DEFINER
-FROM information_schema.ROUTINES
-WHERE ROUTINE_TYPE = 'FUNCTION' and routine_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-UNION
-SELECT DEFINER
-FROM information_schema.TRIGGERS
-WHERE trigger_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-UNION
-SELECT DEFINER
-FROM information_schema.events
-WHERE event_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-"""),
-        Query(
-            "MySQL_ForeignKeys", """
-SELECT /*+ MAX_EXECUTION_TIME(5000) */ CONSTRAINT_SCHEMA, CONSTRAINT_NAME, TABLE_SCHEMA, TABLE_NAME
-FROM information_schema.TABLE_CONSTRAINTS
-WHERE table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
-AND CONSTRAINT_TYPE= 'FOREIGN KEY'
-"""),
-        Query("MySQL_BinLog", """
-select @@log_bin,@@log_slave_updates
 """),
         Query(
             "MySQL_GlobalVariables", """
