@@ -35,7 +35,7 @@ class Resources:
   resource_count = 0
 
 _clients = {}
-_resource_list = []
+_resource_list = {}
 
 verbs_listings = ['Describe', 'Get', 'List']
 
@@ -104,6 +104,9 @@ class RawListing(object):
         'response': self.response,
         'error': self.error,
     }
+
+  def get_str(self, key):
+    return '' if key is None else key
 
   def find_dict_extract(self, key, var):
     """Find a specified key in current AWS data.
@@ -184,7 +187,12 @@ class RawListing(object):
             found_resource['Name'] = find_name
           else:
             found_resource['Name'] = lookup_name
-          _resource_list.append(found_resource)
+          key = self.get_str(found_resource['ResourceGroup']) + \
+self.get_str(found_resource['Location']) + \
+self.get_str(found_resource['ResourceType']) + \
+self.get_str(found_resource['Tags']) + \
+self.get_str(found_resource['Name'])
+          _resource_list[key] = found_resource
 
     except Exception as exc:
       logging.error(exc)
@@ -549,8 +557,8 @@ def acquire_listing(verbose, what):
       traceback.print_exc()
     result_type = (result_no_access if 'AccessDeniedException'
                    in str(exc) else result_error)
-    if (service == 'ec2' and operation == 'DescribeInstances'):
-      logging.error(exc)
+    #if (service == 'ec2' and operation == 'DescribeInstances'):
+    #  logging.error(exc)
 
     ignored_err = reference_aws.RESULT_IGNORE_ERRORS.get(
         service, {}).get(operation)
@@ -674,7 +682,7 @@ def scan_aws(service_collection, region_list, thread_limit):
       _clients = {}
 
     with open('./output/services/resources.json', 'w+', encoding='utf-8') as f:
-      json.dump(_resource_list, f, ensure_ascii=False, indent=4)
+      json.dump(list(_resource_list.values()), f, ensure_ascii=False, indent=4)
     
     break
 
