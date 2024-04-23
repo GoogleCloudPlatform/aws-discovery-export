@@ -49,16 +49,23 @@ class RdsScanner:
       rds_info = DBConnection()
       rds_info.username = secret_config.get('username', secret['username'])
       rds_info.password = secret['password']
-      rds_info.engine = secret_config.get('engine', secret['engine'])
-      rds_info.host = secret_config.get('host', secret['host'])
-      rds_info.port = secret_config.get('port', secret['port'])
-      rds_info.dbname = (secret_config.get('dbname', secret['dbname'])) if rds_info.engine != 'sqlserver' else 'master'
+      rds_info.engine = secret_config.get('engine', secret.get('engine'))
+      rds_info.host = secret_config.get('host', secret.get('host'))
+      rds_info.port = secret_config.get('port', secret.get('port'))
+      rds_info.dbname = secret_config.get('dbname', secret.get('dbname'))
+
+      default_db = {
+        'sqlserver': 'master', 'mysql': 'mysql', 'postgres': 'postgres'
+      }
+
+      if not rds_info.dbname:
+        rds_info.dbname = default_db.get(rds_info.engine)
 
       session = boto3.session.Session()
       client = session.client(service_name='rds', region_name=secret_region)
 
       db_instance_helper = DBInstanceHelper()
-      db_instance_identifier = secret_config.get('dbInstanceIdentifier', secret['dbInstanceIdentifier'])
+      db_instance_identifier = secret_config.get('dbInstanceIdentifier', secret.get('dbInstanceIdentifier'))
       instance_details = db_instance_helper.get_image_size_details(
           client, db_instance_identifier, secret_region)
 
@@ -69,13 +76,13 @@ class RdsScanner:
           'port': rds_info.port
       }
 
-      if secret['engine'] == 'mysql':
+      if rds_info.engine == 'mysql':
         output['dbType'] = 4
         scanner = MysqlScanner(secret_region)
-      elif secret['engine'] == 'postgres':
+      elif rds_info.engine == 'postgres':
         output['dbType'] = 1
         scanner = PostgreSQLScanner(secret_region)
-      elif secret['engine'] == 'sqlserver':
+      elif rds_info.engine == 'sqlserver':
         output['dbType'] = 2
         scanner = SqlServerScanner(secret_region)
 
