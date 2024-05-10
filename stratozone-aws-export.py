@@ -30,7 +30,7 @@ import signal
 import concurrent.futures.thread
 
 import boto3
-from pkg_resources import parse_version as version
+from packaging.version import Version as version
 import stratozonedict
 import aws_resource_scan 
 
@@ -376,8 +376,8 @@ def get_performance_info(vm_id, region_name, block_device_list):
 
       response = perf_client.get_metric_data(
           MetricDataQueries=perf_queries,
-          StartTime=datetime.datetime.utcnow() - datetime.timedelta(days=30),
-          EndTime=datetime.datetime.utcnow(),
+          StartTime=datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=30),
+          EndTime=datetime.datetime.now(datetime.UTC),
           ScanBy='TimestampAscending'
       )
 
