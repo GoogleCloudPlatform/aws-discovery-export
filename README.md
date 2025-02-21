@@ -14,6 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
+For automated AWS EC2 instances collection and assessment, use the [Migration Center discovery client CLI](https://cloud.google.com/migration-center/docs/discovery-client-cli-overview) to [discover EC2 instances](https://cloud.google.com/migration-center/docs/discover-aws-vms).
+
+Contact mcdc-feedback-external@google.com for feedback and support.
+
 ## Solution Overview
 __Warning:__ This project is currently in beta. Please open an issue if you would like to report a bug or documentation issue, request a feature, or have a question.
 
