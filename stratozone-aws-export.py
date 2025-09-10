@@ -1,4 +1,5 @@
-"""Copyright 2021 Google LLC.
+"""
+Copyright 2021 Google LLC.
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -521,9 +522,46 @@ while run_script:
   logging.debug('Starting collection at: %s', datetime.datetime.now())
   ec2_client = boto3.client('ec2')
 
-  logging.info('Get all regions')
-  regions = ec2_client.describe_regions(AllRegions=True)
+  # Display interactive banner and get user input
+  print("====================================================================")
+  print(" StratoZone AWS Export Script - Region Selection")
+  print("====================================================================")
+  print("You can specify a single AWS region to scan.")
+  print("Leave blank and press ENTER to scan all available regions.")
+  print("\nCommon region codes:")
+  print("  - us-east-1")
+  print("  - us-east-2")
+  print("  - us-west-2")
+  print("\nExample: To scan only N. Virginia, enter: us-east-1")
+  print("--------------------------------------------------------------------")
+  target_region = input("Enter target region code (or leave blank for all): ").strip()
+
+  # New region selection logic
+  logging.info('Get all regions for validation and selection')
+  all_regions_response = ec2_client.describe_regions(AllRegions=True)
+  all_region_names = [r['RegionName'] for r in all_regions_response['Regions']]
+
+  regions = {} # This will be populated based on user input
+
+  if not target_region:
+      # Case 1: User wants all regions.
+      print("No specific region entered. Proceeding to scan all available regions...")
+      regions = all_regions_response
+  elif target_region in all_region_names:
+      # Case 2: User entered a valid single region.
+      print(f"Valid region '{target_region}' entered. Proceeding with single-region scan...")
+      # Re-create the 'regions' structure the script expects.
+      regions['Regions'] = [r for r in all_regions_response['Regions'] if r['RegionName'] == target_region]
+  else:
+      # Case 3: User entered an invalid region -> abort.
+      print(f"Error: Invalid region name '{target_region}'.")
+      print("Please use a valid AWS region name (e.g., 'us-east-1').")
+      print("Aborting execution.")
+      sys.exit(1) # Abort the script with an error code.
+
+  # This line is required to maintain compatibility with the rest of the script.
   region_list = list(map(lambda x:x['RegionName'], regions['Regions']))
+
 
   if args.collection_mode == 'VirtualMachine':
 
